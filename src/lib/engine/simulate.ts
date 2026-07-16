@@ -315,6 +315,7 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
   return candidates.map((delta) => {
     const gain = projectedGain(cfg, delta);
     const monthlyCostDeltaUSD = projectedMonthlyCostDelta(cfg, delta);
+    const meta = metaFor(cfg, delta);
     return {
       delta,
       label: labelFor(delta),
@@ -322,10 +323,55 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
       gain,
       monthlyCostDeltaUSD,
       categories: CATEGORY_BY_KIND[delta.kind],
-      score: gain, // filled in by rankRecommendations
+      score: gain,
+      upfrontCostUSD: estimateUpfrontCost(delta),
+      addedNodes: meta.addedNodes,
+      requiresDiscreteGpu: meta.requiresDiscreteGpu,
+      requiresFreeNvmeSlot: meta.requiresFreeNvmeSlot,
+      feasible: true,
+      blockedReasons: [],
     };
   });
 }
+
+/**
+ * Enforce budget / power / space / compatibility constraints against the base
+ * config, applying candidate deltas greedily in the order caller provides.
+ * Infeasible recommendations are annotated (feasible=false, blockedReasons=[...])
+ * so the UI can filter or explain them.
+ */
+export function applyConstraints(
+  cfg: HomelabConfig,
+  recs: Recommendation[],
+  constraints: Constraints,
+): Recommendation[] {
+  const cumulative = {
+    upfrontUSD: 0,
+    addedNodes: 0,
+    monthlyCostAfterUSD: evaluate(cfg).power.monthlyCostUSD,
+  };
+  return recs.map((r) => {
+    const nextMonthly =
+      Math.round((cumulative.monthlyCostAfterUSD + r.monthlyCostDeltaUSD) * 100) / 100;
+    const reasons = checkConstraints(
+      cfg,
+      r.delta,
+      {
+        upfrontUSD: cumulative.upfrontUSD,
+        addedNodes: cumulative.addedNodes,
+        monthlyCostAfterUSD: nextMonthly,
+      },
+      constraints,
+    );
+    if (reasons.length === 0) {
+      cumulative.upfrontUSD += r.upfrontCostUSD;
+      cumulative.addedNodes += r.addedNodes;
+      cumulative.monthlyCostAfterUSD = nextMonthly;
+    }
+    return { ...r, feasible: reasons.length === 0, blockedReasons: reasons };
+  });
+}
+
 
 /**
  * Re-rank + filter recommendations for the user's priorities.
