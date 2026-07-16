@@ -96,7 +96,7 @@ function Evaluate() {
                 <PolarGrid />
                 <PolarAngleAxis dataKey="dim" tick={{ fontSize: 12 }} />
                 <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                <Radar dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.35} />
+                <Radar dataKey="score" stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.35} />
               </RadarChart>
             </ResponsiveContainer>
           </CardContent>
