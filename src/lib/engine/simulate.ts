@@ -4,6 +4,22 @@ import { evaluate } from "./score";
 export type Delta =
   | { kind: "add-ram"; nodeId: string; gb: number }
   | { kind: "add-gpu"; nodeId: string; tier: Node["gpu"]["tier"]; vramGB: number; model: string }
+  | {
+      kind: "add-egpu";
+      nodeId: string;
+      tier: Node["gpu"]["tier"];
+      vramGB: number;
+      model: string;
+      interconnect: "thunderbolt" | "oculink" | "usb4";
+    }
+  | {
+      kind: "add-cloud-gpu";
+      provider: string; // e.g. "RunPod", "Lambda", "Vast.ai"
+      tier: Node["gpu"]["tier"];
+      vramGB: number;
+      model: string; // e.g. "A100 80GB", "L40S"
+      monthlyUSD: number; // expected monthly spend at your duty cycle
+    }
   | { kind: "add-nvme"; nodeId: string; sizeGB: number }
   | { kind: "upgrade-lan"; gbps: number }
   | { kind: "upgrade-wan"; downMbps: number; upMbps: number }
