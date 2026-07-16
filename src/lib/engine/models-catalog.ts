@@ -138,7 +138,7 @@ export const ModelSpecSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   vendor: z.string().min(1),
-  hosting: z.enum(["local", "hosted"]),
+  hosting: z.enum(["local", "hosted", "custom"]),
   weightsGB: z.number().positive().optional(),
   minVramGB: z.number().positive().optional(),
   endpoint: z.string().url().optional(),
