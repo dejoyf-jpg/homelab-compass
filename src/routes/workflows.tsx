@@ -172,15 +172,100 @@ function Workflows() {
             </Card>
           );
         })}
-        {cfg.workloads.length === 0 && (
-          <Card><CardContent className="p-10 text-center text-muted-foreground">No workloads defined. Add one to model fit.</CardContent></Card>
-        )}
       </div>
 
       <CustomModelsSection cfg={cfg} onChange={setCfg} />
     </div>
   );
 }
+
+// -------- Preset workloads (one-click starters) --------
+
+interface WorkloadPreset {
+  id: string;
+  kind: Workload["kind"];
+  label: string;
+  detail: string;
+  icon: typeof Sparkles;
+  params: Record<string, number | string | boolean>;
+}
+
+const WORKLOAD_PRESETS: WorkloadPreset[] = [
+  {
+    id: "llm-8b",
+    kind: "llm-inference",
+    label: "Local LLM — Llama 3.1 8B",
+    detail: "~8 GB VRAM, targets 30 tok/s. Good starter chat model.",
+    icon: Sparkles,
+    params: { modelSizeGB: 8, targetTokPerSec: 30 },
+  },
+  {
+    id: "llm-70b",
+    kind: "llm-inference",
+    label: "Local LLM — Llama 3.1 70B (quantized)",
+    detail: "~40 GB VRAM at 4-bit, targets 15 tok/s. Serious inference rig.",
+    icon: Sparkles,
+    params: { modelSizeGB: 40, targetTokPerSec: 15 },
+  },
+  {
+    id: "plex",
+    kind: "plex-transcode",
+    label: "Plex / Jellyfin — 2× 4K transcodes",
+    detail: "Two concurrent 4K HEVC transcodes for family streaming.",
+    icon: Server,
+    params: { streams: 2 },
+  },
+  {
+    id: "vms",
+    kind: "vms",
+    label: "Proxmox — 4 VMs at 8 GB each",
+    detail: "Home services stack (OPNsense, HAOS, dev box, monitoring).",
+    icon: Server,
+    params: { count: 4, ramPerGB: 8 },
+  },
+  {
+    id: "containers",
+    kind: "containers",
+    label: "Docker / K3s — self-hosted apps",
+    detail: "20 containers averaging 512 MB (Nextcloud, *arr stack, Vaultwarden).",
+    icon: Server,
+    params: { count: 20, ramPerGB: 0.5 },
+  },
+  {
+    id: "home-assistant",
+    kind: "home-assistant",
+    label: "Home Assistant + Frigate NVR",
+    detail: "24/7 automations plus 4 cameras with object detection.",
+    icon: Server,
+    params: { cameras: 4 },
+  },
+  {
+    id: "game-server",
+    kind: "game-server",
+    label: "Game server — Minecraft / Valheim",
+    detail: "Small friends-and-family server, 8 GB RAM.",
+    icon: Server,
+    params: { ramPerGB: 8 },
+  },
+  {
+    id: "ci",
+    kind: "ci-runner",
+    label: "GitHub Actions self-hosted runner",
+    detail: "One always-on runner for personal repos and side projects.",
+    icon: Wrench,
+    params: { count: 1, ramPerGB: 4 },
+  },
+  {
+    id: "backup",
+    kind: "backup",
+    label: "Offsite backup — 2 TB",
+    detail: "Restic/Borg to B2 or a second location, nightly.",
+    icon: Cloud,
+    params: { dataTB: 2 },
+  },
+];
+
+
 
 function ParamField({ label, value, onChange }: { label: string; value: number | string | undefined; onChange: (v: number) => void }) {
   return (
