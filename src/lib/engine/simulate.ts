@@ -188,6 +188,9 @@ export function estimateUpfrontCost(delta: Delta): number {
     case "add-ram": return Math.round(delta.gb * 4);
     case "add-nvme": return Math.round(delta.sizeGB * 0.08);
     case "add-gpu": return GPU_TIER_COST[delta.tier] ?? 500;
+    case "add-egpu": return (GPU_TIER_COST[delta.tier] ?? 500) + 250; // GPU + enclosure
+    case "add-cloud-gpu": return 0; // pay-as-you-go, no upfront hardware
+
     case "upgrade-lan": return delta.gbps >= 10 ? 350 : delta.gbps >= 2.5 ? 120 : 60;
     case "upgrade-wan": return 0; // ISP plan change, not hardware
     case "add-ups": return 220;
