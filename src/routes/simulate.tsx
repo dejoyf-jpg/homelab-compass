@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
-import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info } from "lucide-react";
+import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info, Check } from "lucide-react";
 import type { Recommendation } from "@/lib/engine/simulate";
 import type { HomelabConfig } from "@/lib/engine/types";
 
@@ -75,6 +76,36 @@ function Simulate() {
     [simulatedCfg, rankedRecommendations, constraints],
   );
 
+  // One-click apply: append delta, evaluate before/after, toast a summary,
+  // flash the results card, and scroll it into view.
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const [flash, setFlash] = useState(false);
+  const applyRecommendation = (rec: Recommendation) => {
+    const before = evaluate(simulatedCfg);
+    const after = evaluate(applyDeltas(simulatedCfg, [rec.delta]));
+    setDeltas((d) => [...d, rec.delta]);
+    setFlash(true);
+    const overallDelta = after.overall - before.overall;
+    const powerDelta = after.power.monthlyCostUSD - before.power.monthlyCostUSD;
+    const parts = [
+      overallDelta !== 0
+        ? `${overallDelta > 0 ? "+" : ""}${overallDelta} overall`
+        : "no score change",
+      powerDelta !== 0
+        ? `${powerDelta > 0 ? "+" : ""}$${powerDelta.toFixed(2)}/mo power`
+        : null,
+    ].filter(Boolean);
+    toast.success(`Applied: ${rec.label}`, { description: parts.join(" · ") });
+    requestAnimationFrame(() =>
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(false), 900);
+    return () => clearTimeout(t);
+  }, [flash]);
+
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
@@ -115,7 +146,7 @@ function Simulate() {
                       key={i}
                       cfg={simulatedCfg}
                       rec={r}
-                      onAdd={() => setDeltas([...deltas, r.delta])}
+                      onAdd={() => applyRecommendation(r)}
                     />
                   ))}
                 </div>
@@ -140,8 +171,20 @@ function Simulate() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-base">Baseline → Simulated</CardTitle></CardHeader>
+        <Card
+          ref={resultsRef}
+          className={`transition-shadow duration-700 ${flash ? "ring-2 ring-primary shadow-lg" : ""}`}
+        >
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              Baseline → Simulated
+              {flash && (
+                <span className="inline-flex items-center gap-1 text-xs font-normal text-primary">
+                  <Check className="h-3.5 w-3.5" /> recalculated
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between text-sm border-b pb-2">
               <span className="font-medium">Overall</span>
@@ -224,8 +267,8 @@ function Simulate() {
                       +{r.gain} overall
                     </Badge>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => setDeltas([...deltas, r.delta])}>
-                    <Plus className="h-4 w-4 mr-1" /> Add
+                  <Button size="sm" onClick={() => applyRecommendation(r)}>
+                    <Plus className="h-4 w-4 mr-1" /> Apply & recalc
                   </Button>
                 </div>
               </div>
