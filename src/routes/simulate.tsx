@@ -109,6 +109,46 @@ function Simulate() {
       </div>
 
       <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Recommended additions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {recommendations.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nothing obvious to add — current simulated build looks balanced.
+            </p>
+          ) : (
+            recommendations.map((r, i) => (
+              <div
+                key={i}
+                className="flex items-start justify-between gap-3 text-sm border rounded-md p-3"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium">{r.label}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{r.reason}</div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {r.gain > 0 && (
+                    <Badge variant="secondary" className="tabular-nums">
+                      +{r.gain} overall
+                    </Badge>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => setDeltas([...deltas, r.delta])}>
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+
+
+      <Card>
         <CardHeader><CardTitle className="text-base">Workload fit</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {simulated!.workloadFit.length === 0 && (
