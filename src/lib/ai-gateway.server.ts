@@ -16,7 +16,7 @@ export async function chatCompletion(opts: {
   const body: Record<string, unknown> = {
     model: opts.model,
     messages: opts.messages,
-    max_tokens: opts.maxTokens ?? 8192,
+    max_tokens: opts.maxTokens ?? 16384,
   };
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
   if (opts.jsonMode) body.response_format = { type: "json_object" };
@@ -41,9 +41,10 @@ export async function chatCompletion(opts: {
     choices?: { message?: { content?: string }; finish_reason?: string }[];
   };
   const choice = json.choices?.[0];
-  if (choice?.finish_reason === "length") {
+  const content = choice?.message?.content ?? "";
+  if (choice?.finish_reason === "length" && !content) {
     throw new Error("AI response was truncated. Shorten your description or try again.");
   }
-  return choice?.message?.content ?? "";
+  return content;
 }
 
