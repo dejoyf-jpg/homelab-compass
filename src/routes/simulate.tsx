@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/select";
 import { useConfig } from "@/lib/storage";
 import { evaluate } from "@/lib/engine/score";
-import { applyDeltas, type Delta } from "@/lib/engine/simulate";
-import { X, Plus } from "lucide-react";
+import { applyDeltas, recommendDeltas, type Delta } from "@/lib/engine/simulate";
+import { X, Plus, Sparkles } from "lucide-react";
+
 
 export const Route = createFileRoute("/simulate")({
   head: () => ({
