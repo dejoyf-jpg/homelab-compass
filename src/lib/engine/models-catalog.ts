@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { HomelabConfig, Node, Workload } from "./types";
 import { estimateLlmTokensPerSec } from "./score";
 
