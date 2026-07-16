@@ -74,7 +74,18 @@ export const parseIntake = createServerFn({ method: "POST" })
     try {
       obj = JSON.parse(raw);
     } catch {
-      throw new Error("AI returned invalid JSON. Try rephrasing your description.");
+      // Strip markdown fences and extract the outermost {...} block.
+      const cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+      const start = cleaned.indexOf("{");
+      const end = cleaned.lastIndexOf("}");
+      if (start === -1 || end === -1 || end <= start) {
+        throw new Error("AI returned invalid JSON. Try rephrasing your description.");
+      }
+      try {
+        obj = JSON.parse(cleaned.slice(start, end + 1));
+      } catch {
+        throw new Error("AI returned invalid JSON. Try rephrasing your description.");
+      }
     }
     const parsed = HomelabConfigSchema.safeParse(obj);
     if (!parsed.success) {
