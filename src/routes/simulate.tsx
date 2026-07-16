@@ -423,7 +423,91 @@ function SuggestionCard({
   );
 }
 
+function ConstraintsPanel({
+  constraints,
+  onChange,
+}: {
+  constraints: Constraints;
+  onChange: (c: Constraints) => void;
+}) {
+  const update = <K extends keyof Constraints>(k: K, v: Constraints[K]) =>
+    onChange({ ...constraints, [k]: v });
+  const numOrUndef = (v: string): number | undefined => {
+    const n = Number(v);
+    return v === "" || Number.isNaN(n) ? undefined : n;
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Constraints</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-4">
+        <div>
+          <Label className="text-xs">Budget (USD, one-time)</Label>
+          <Input
+            type="number"
+            placeholder="unlimited"
+            value={constraints.maxBudgetUSD ?? ""}
+            onChange={(e) => update("maxBudgetUSD", numOrUndef(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Max monthly power ($)</Label>
+          <Input
+            type="number"
+            placeholder="unlimited"
+            value={constraints.maxMonthlyPowerCostUSD ?? ""}
+            onChange={(e) => update("maxMonthlyPowerCostUSD", numOrUndef(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Space for new nodes</Label>
+          <Input
+            type="number"
+            placeholder="unlimited"
+            value={constraints.maxAddedNodes ?? ""}
+            onChange={(e) => update("maxAddedNodes", numOrUndef(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">NVMe slots / node</Label>
+          <Input
+            type="number"
+            placeholder="4"
+            value={constraints.maxNvmeSlotsPerNode ?? ""}
+            onChange={(e) => update("maxNvmeSlotsPerNode", numOrUndef(e.target.value))}
+          />
+        </div>
+        <div className="md:col-span-4 flex items-center justify-between border-t pt-3">
+          <div>
+            <Label className="text-sm">Allow discrete GPUs</Label>
+            <p className="text-xs text-muted-foreground">
+              Off = only iGPU / no-GPU changes (fits SFF, low-power builds).
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={constraints.allowDiscreteGpu !== false}
+              onCheckedChange={(v) => update("allowDiscreteGpu", v)}
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs"
+              onClick={() => onChange(DEFAULT_CONSTRAINTS)}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PriorityFilters({
+
 
   weights,
   onChange,
