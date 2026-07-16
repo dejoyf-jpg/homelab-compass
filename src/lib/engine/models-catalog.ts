@@ -1,6 +1,8 @@
 import { z } from "zod";
-import type { HomelabConfig, Node, Workload } from "./types";
+import type { CustomModel, HomelabConfig, Node, Workload } from "./types";
 import { estimateLlmTokensPerSec } from "./score";
+
+export type ModelHostingExt = "local" | "hosted" | "custom";
 
 export type ModelHosting = "local" | "hosted";
 
