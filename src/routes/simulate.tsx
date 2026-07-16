@@ -84,23 +84,17 @@ function Simulate() {
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
                   Suggested upgrades
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {recommendations.slice(0, 4).map((r, i) => (
-                    <Button
+                    <SuggestionCard
                       key={i}
-                      size="sm"
-                      variant="secondary"
-                      className="h-auto py-1.5"
-                      onClick={() => setDeltas([...deltas, r.delta])}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      <span>{r.label}</span>
-                      {r.gain > 0 && (
-                        <span className="ml-2 text-xs text-emerald-600">+{r.gain}</span>
-                      )}
-                    </Button>
+                      cfg={simulatedCfg}
+                      rec={r}
+                      onAdd={() => setDeltas([...deltas, r.delta])}
+                    />
                   ))}
                 </div>
+
               </div>
             )}
             <AddDeltaForm cfg={cfg} onAdd={(d) => setDeltas([...deltas, d])} />
