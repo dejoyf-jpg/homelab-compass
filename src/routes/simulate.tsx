@@ -11,14 +11,20 @@ import { useConfig } from "@/lib/storage";
 import { evaluate } from "@/lib/engine/score";
 import {
   applyDeltas,
+  applyConstraints,
   recommendDeltas,
   rankRecommendations,
   DEFAULT_WEIGHTS,
+  DEFAULT_CONSTRAINTS,
   type Delta,
+  type Constraints,
   type PriorityWeights,
   type RecCategory,
 } from "@/lib/engine/simulate";
 import { Toggle } from "@/components/ui/toggle";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+
 import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info } from "lucide-react";
 import type { Recommendation } from "@/lib/engine/simulate";
 import type { HomelabConfig } from "@/lib/engine/types";
@@ -47,14 +53,28 @@ function Simulate() {
     [simulatedCfg, hydrated],
   );
   const [weights, setWeights] = useState<PriorityWeights>(DEFAULT_WEIGHTS);
+  const [constraints, setConstraints] = useState<Constraints>(DEFAULT_CONSTRAINTS);
   const rawRecommendations = useMemo(
     () => (hydrated ? recommendDeltas(simulatedCfg) : []),
     [simulatedCfg, hydrated],
   );
-  const recommendations = useMemo(
-    () => rankRecommendations(rawRecommendations, weights),
+  const rankedRecommendations = useMemo(
+    () => rankRecommendations(rawRecommendations, weights, 20),
     [rawRecommendations, weights],
   );
+  const recommendations = useMemo(
+    () => applyConstraints(simulatedCfg, rankedRecommendations, constraints)
+      .filter((r) => r.feasible)
+      .slice(0, 6),
+    [simulatedCfg, rankedRecommendations, constraints],
+  );
+  const blockedRecommendations = useMemo(
+    () => applyConstraints(simulatedCfg, rankedRecommendations, constraints)
+      .filter((r) => !r.feasible)
+      .slice(0, 4),
+    [simulatedCfg, rankedRecommendations, constraints],
+  );
+
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
@@ -74,6 +94,8 @@ function Simulate() {
       </div>
 
       <PriorityFilters weights={weights} onChange={setWeights} />
+      <ConstraintsPanel constraints={constraints} onChange={setConstraints} />
+
 
 
 
@@ -188,8 +210,14 @@ function Simulate() {
                         {r.monthlyCostDeltaUSD > 0 ? "+" : ""}${r.monthlyCostDeltaUSD}/mo
                       </span>
                     )}
+                    {r.upfrontCostUSD > 0 && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 tabular-nums">
+                        ~${r.upfrontCostUSD} upfront
+                      </span>
+                    )}
                   </div>
                 </div>
+
                 <div className="flex items-center gap-2 shrink-0">
                   {r.gain > 0 && (
                     <Badge variant="secondary" className="tabular-nums">
@@ -206,6 +234,35 @@ function Simulate() {
           )}
         </CardContent>
       </Card>
+
+      {blockedRecommendations.length > 0 && (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-base text-muted-foreground">
+              Blocked by your constraints
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {blockedRecommendations.map((r, i) => (
+              <div key={i} className="text-sm border rounded-md p-2.5 bg-muted/20 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{r.label}</span>
+                  {r.gain > 0 && (
+                    <Badge variant="outline" className="tabular-nums text-xs">
+                      would give +{r.gain}
+                    </Badge>
+                  )}
+                </div>
+                <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                  {r.blockedReasons.map((b, j) => <li key={j}>{b}</li>)}
+                </ul>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+
 
 
 
@@ -366,7 +423,91 @@ function SuggestionCard({
   );
 }
 
+function ConstraintsPanel({
+  constraints,
+  onChange,
+}: {
+  constraints: Constraints;
+  onChange: (c: Constraints) => void;
+}) {
+  const update = <K extends keyof Constraints>(k: K, v: Constraints[K]) =>
+    onChange({ ...constraints, [k]: v });
+  const numOrUndef = (v: string): number | undefined => {
+    const n = Number(v);
+    return v === "" || Number.isNaN(n) ? undefined : n;
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Constraints</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-4">
+        <div>
+          <Label className="text-xs">Budget (USD, one-time)</Label>
+          <Input
+            type="number"
+            placeholder="unlimited"
+            value={constraints.maxBudgetUSD ?? ""}
+            onChange={(e) => update("maxBudgetUSD", numOrUndef(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Max monthly power ($)</Label>
+          <Input
+            type="number"
+            placeholder="unlimited"
+            value={constraints.maxMonthlyPowerCostUSD ?? ""}
+            onChange={(e) => update("maxMonthlyPowerCostUSD", numOrUndef(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Space for new nodes</Label>
+          <Input
+            type="number"
+            placeholder="unlimited"
+            value={constraints.maxAddedNodes ?? ""}
+            onChange={(e) => update("maxAddedNodes", numOrUndef(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">NVMe slots / node</Label>
+          <Input
+            type="number"
+            placeholder="4"
+            value={constraints.maxNvmeSlotsPerNode ?? ""}
+            onChange={(e) => update("maxNvmeSlotsPerNode", numOrUndef(e.target.value))}
+          />
+        </div>
+        <div className="md:col-span-4 flex items-center justify-between border-t pt-3">
+          <div>
+            <Label className="text-sm">Allow discrete GPUs</Label>
+            <p className="text-xs text-muted-foreground">
+              Off = only iGPU / no-GPU changes (fits SFF, low-power builds).
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={constraints.allowDiscreteGpu !== false}
+              onCheckedChange={(v) => update("allowDiscreteGpu", v)}
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs"
+              onClick={() => onChange(DEFAULT_CONSTRAINTS)}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PriorityFilters({
+
 
   weights,
   onChange,

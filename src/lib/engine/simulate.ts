@@ -73,6 +73,12 @@ export interface Recommendation {
   categories: RecCategory[];
   monthlyCostDeltaUSD: number; // added running cost (power) per month
   score: number; // priority-weighted ranking score
+  upfrontCostUSD: number; // one-time hardware cost estimate
+  addedNodes: number; // physical units added
+  requiresDiscreteGpu: boolean;
+  requiresFreeNvmeSlot: boolean;
+  feasible: boolean;
+  blockedReasons: string[];
 }
 
 export type PriorityWeights = Partial<Record<RecCategory, number>>;
@@ -82,6 +88,19 @@ export const DEFAULT_WEIGHTS: Required<PriorityWeights> = {
   reliability: 1,
   cost: 0,
   network: 1,
+};
+
+export interface Constraints {
+  maxBudgetUSD?: number;              // total upfront budget for the stacked scenario
+  maxMonthlyPowerCostUSD?: number;    // cap on total simulated $/mo (baseline + adds)
+  maxAddedNodes?: number;             // physical units you have room for
+  allowDiscreteGpu?: boolean;         // false = suggest only iGPU / no-GPU changes
+  maxNvmeSlotsPerNode?: number;       // e.g. 2 for a mini-PC
+}
+
+export const DEFAULT_CONSTRAINTS: Constraints = {
+  allowDiscreteGpu: true,
+  maxNvmeSlotsPerNode: 4,
 };
 
 const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
@@ -95,6 +114,74 @@ const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
   "add-gpu": ["performance"],
   "add-node": ["performance", "reliability"],
 };
+
+const GPU_TIER_COST: Record<Node["gpu"]["tier"], number> = {
+  none: 0, igpu: 0, entry: 220, mid: 550, high: 1200, datacenter: 4000,
+};
+
+/** Rough hardware cost estimate for a single delta, in USD. */
+export function estimateUpfrontCost(delta: Delta): number {
+  switch (delta.kind) {
+    case "add-ram": return Math.round(delta.gb * 4);
+    case "add-nvme": return Math.round(delta.sizeGB * 0.08);
+    case "add-gpu": return GPU_TIER_COST[delta.tier] ?? 500;
+    case "upgrade-lan": return delta.gbps >= 10 ? 350 : delta.gbps >= 2.5 ? 120 : 60;
+    case "upgrade-wan": return 0; // ISP plan change, not hardware
+    case "add-ups": return 220;
+    case "add-offsite": return 0; // subscription — counted in monthly if user cares
+    case "add-managed-switch": return 180;
+    case "add-node": return 500;
+  }
+}
+
+function metaFor(cfg: HomelabConfig, delta: Delta) {
+  const addedNodes = delta.kind === "add-node" ? 1 : 0;
+  const requiresDiscreteGpu =
+    delta.kind === "add-gpu" && delta.tier !== "igpu" && delta.tier !== "none";
+  const requiresFreeNvmeSlot = delta.kind === "add-nvme";
+  return { addedNodes, requiresDiscreteGpu, requiresFreeNvmeSlot };
+}
+
+function checkConstraints(
+  cfg: HomelabConfig,
+  delta: Delta,
+  cumulative: { upfrontUSD: number; addedNodes: number; monthlyCostAfterUSD: number },
+  c: Constraints,
+): string[] {
+  const reasons: string[] = [];
+  const cost = estimateUpfrontCost(delta);
+  const meta = metaFor(cfg, delta);
+
+  if (c.maxBudgetUSD != null && cumulative.upfrontUSD + cost > c.maxBudgetUSD) {
+    reasons.push(
+      `Over budget: needs $${cost} (running total $${cumulative.upfrontUSD + cost} > $${c.maxBudgetUSD}).`,
+    );
+  }
+  if (
+    c.maxMonthlyPowerCostUSD != null &&
+    cumulative.monthlyCostAfterUSD > c.maxMonthlyPowerCostUSD
+  ) {
+    reasons.push(
+      `Would push monthly power to $${cumulative.monthlyCostAfterUSD} (cap $${c.maxMonthlyPowerCostUSD}).`,
+    );
+  }
+  if (c.maxAddedNodes != null && cumulative.addedNodes + meta.addedNodes > c.maxAddedNodes) {
+    reasons.push(`No physical space for another node (cap ${c.maxAddedNodes}).`);
+  }
+  if (meta.requiresDiscreteGpu && c.allowDiscreteGpu === false) {
+    reasons.push("Discrete GPUs disallowed by your compatibility setting.");
+  }
+  if (meta.requiresFreeNvmeSlot && c.maxNvmeSlotsPerNode != null) {
+    const nodeId = (delta as Extract<Delta, { kind: "add-nvme" }>).nodeId;
+    const target = cfg.nodes.find((n) => n.id === nodeId);
+    const used = target?.storage.filter((s) => s.kind === "nvme").length ?? 0;
+    if (used >= c.maxNvmeSlotsPerNode) {
+      reasons.push(`No free NVMe slot on ${target?.name ?? "node"} (max ${c.maxNvmeSlotsPerNode}).`);
+    }
+  }
+  return reasons;
+}
+
 
 
 function pickWeakestNode(cfg: HomelabConfig, key: "ram" | "storage" | "gpu"): Node | null {
@@ -228,6 +315,7 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
   return candidates.map((delta) => {
     const gain = projectedGain(cfg, delta);
     const monthlyCostDeltaUSD = projectedMonthlyCostDelta(cfg, delta);
+    const meta = metaFor(cfg, delta);
     return {
       delta,
       label: labelFor(delta),
@@ -235,10 +323,55 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
       gain,
       monthlyCostDeltaUSD,
       categories: CATEGORY_BY_KIND[delta.kind],
-      score: gain, // filled in by rankRecommendations
+      score: gain,
+      upfrontCostUSD: estimateUpfrontCost(delta),
+      addedNodes: meta.addedNodes,
+      requiresDiscreteGpu: meta.requiresDiscreteGpu,
+      requiresFreeNvmeSlot: meta.requiresFreeNvmeSlot,
+      feasible: true,
+      blockedReasons: [],
     };
   });
 }
+
+/**
+ * Enforce budget / power / space / compatibility constraints against the base
+ * config, applying candidate deltas greedily in the order caller provides.
+ * Infeasible recommendations are annotated (feasible=false, blockedReasons=[...])
+ * so the UI can filter or explain them.
+ */
+export function applyConstraints(
+  cfg: HomelabConfig,
+  recs: Recommendation[],
+  constraints: Constraints,
+): Recommendation[] {
+  const cumulative = {
+    upfrontUSD: 0,
+    addedNodes: 0,
+    monthlyCostAfterUSD: evaluate(cfg).power.monthlyCostUSD,
+  };
+  return recs.map((r) => {
+    const nextMonthly =
+      Math.round((cumulative.monthlyCostAfterUSD + r.monthlyCostDeltaUSD) * 100) / 100;
+    const reasons = checkConstraints(
+      cfg,
+      r.delta,
+      {
+        upfrontUSD: cumulative.upfrontUSD,
+        addedNodes: cumulative.addedNodes,
+        monthlyCostAfterUSD: nextMonthly,
+      },
+      constraints,
+    );
+    if (reasons.length === 0) {
+      cumulative.upfrontUSD += r.upfrontCostUSD;
+      cumulative.addedNodes += r.addedNodes;
+      cumulative.monthlyCostAfterUSD = nextMonthly;
+    }
+    return { ...r, feasible: reasons.length === 0, blockedReasons: reasons };
+  });
+}
+
 
 /**
  * Re-rank + filter recommendations for the user's priorities.
