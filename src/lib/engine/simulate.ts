@@ -360,7 +360,10 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
     "add-ram": "Raises VM/container density and cache headroom.",
     "add-nvme": "Cuts VM/database latency dramatically vs spinning rust.",
     "add-gpu": "Enables local LLM inference and hardware transcoding.",
+    "add-egpu": "Adds GPU horsepower to an SFF/laptop node via Thunderbolt/OCuLink without opening the case.",
+    "add-cloud-gpu": "Bursts LLM/render workloads to a rented cloud GPU — no local power, noise, or upfront cost.",
     "add-node": "Adds a second host for HA, quorum, and spare capacity.",
+
   };
 
   const labelFor = (d: Delta): string => {
