@@ -70,6 +70,10 @@ function Simulate() {
         <p className="text-muted-foreground mt-1">Stack changes and see side-by-side scoring.</p>
       </div>
 
+      <PriorityFilters weights={weights} onChange={setWeights} />
+
+
+
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <Card>
           <CardHeader><CardTitle className="text-base">Scenario builder</CardTitle></CardHeader>
