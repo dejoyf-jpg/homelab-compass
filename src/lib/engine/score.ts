@@ -130,6 +130,62 @@ function scoreReliability(cfg: HomelabConfig): DimensionScore {
   return { key: "reliability", label: "Reliability", score: clamp(score), notes };
 }
 
+function scoreNoise(cfg: HomelabConfig): DimensionScore {
+  // Higher score = quieter. Estimated from acoustic proxies since we don't
+  // model chassis/fans directly: spinning HDDs, rackmount server CPUs,
+  // blower-style datacenter GPUs, sustained load wattage, and node count.
+  const notes: string[] = [];
+  if (cfg.nodes.length === 0) {
+    return { key: "noise", label: "Noise", score: 100, notes: ["No nodes — silent."] };
+  }
+  let score = 95;
+
+  const hddCount = cfg.nodes.reduce(
+    (a, n) => a + n.storage.filter((s) => s.kind === "hdd" || s.kind === "sas").reduce((b, s) => b + s.count, 0),
+    0,
+  );
+  if (hddCount >= 2) {
+    const penalty = Math.min(25, 4 + hddCount * 2);
+    score -= penalty;
+    notes.push(`${hddCount} spinning disks — audible hum/seek under load.`);
+  }
+
+  const serverCpus = cfg.nodes.filter((n) => n.cpuTier === "server").length;
+  if (serverCpus > 0) {
+    score -= 20 + (serverCpus - 1) * 8;
+    notes.push(`${serverCpus} server-tier CPU node${serverCpus > 1 ? "s" : ""} — rackmount fans are loud at spin-up and under load.`);
+  }
+
+  const loudGpus = cfg.nodes.filter((n) => n.gpu.tier === "datacenter").length;
+  const highGpus = cfg.nodes.filter((n) => n.gpu.tier === "high").length;
+  if (loudGpus > 0) {
+    score -= 20;
+    notes.push("Datacenter GPU present — blower fans are shrill under inference load.");
+  } else if (highGpus > 0) {
+    score -= 6;
+  }
+
+  const totalLoadW = cfg.nodes.reduce((a, n) => a + n.loadWatts, 0);
+  if (totalLoadW > 600) {
+    score -= 10;
+    notes.push(`Total load draw ${totalLoadW}W — sustained cooling will be audible.`);
+  } else if (totalLoadW > 300) {
+    score -= 4;
+  }
+
+  if (cfg.nodes.length >= 4) {
+    score -= 4;
+    notes.push(`${cfg.nodes.length} nodes running — combined fan noise adds up.`);
+  }
+
+  if (score >= 85) notes.push("Fine for a living room or bedroom-adjacent closet.");
+  else if (score >= 65) notes.push("Better placed in an office or utility room.");
+  else if (score >= 40) notes.push("Best isolated to a garage, basement, or dedicated closet.");
+  else notes.push("Rack-loud — plan for a soundproofed room or separate structure.");
+
+  return { key: "noise", label: "Noise", score: clamp(score), notes };
+}
+
 export function estimateLlmTokensPerSec(node: Node, modelSizeGB: number): number | null {
   if (node.gpu.tier === "none") return null;
   const vram = Math.max(node.gpu.vramGB, gpuTierVram[node.gpu.tier]);
@@ -204,6 +260,7 @@ export function evaluate(cfg: HomelabConfig): Evaluation {
     scoreNetwork(cfg),
     scorePower(cfg),
     scoreReliability(cfg),
+    scoreNoise(cfg),
   ];
   const overall = Math.round(dims.reduce((a, d) => a + d.score, 0) / dims.length);
   const bottlenecks = dims
