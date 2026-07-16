@@ -65,6 +65,7 @@ export const parseIntake = createServerFn({ method: "POST" })
       model: MODEL,
       jsonMode: true,
       temperature: 0.2,
+      maxTokens: 8192,
       messages: [
         { role: "system", content: INTAKE_SYSTEM },
         { role: "user", content: data.description },
