@@ -251,6 +251,11 @@ function Simulate() {
         </Card>
       </div>
 
+      {deltas.length > 0 && (
+        <UpgradeComparison cfg={cfg} deltas={deltas} />
+      )}
+
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
