@@ -156,12 +156,21 @@ export interface Constraints {
   maxAddedNodes?: number;             // physical units you have room for
   allowDiscreteGpu?: boolean;         // false = suggest only iGPU / no-GPU changes
   maxNvmeSlotsPerNode?: number;       // e.g. 2 for a mini-PC
+  maxCloudGpuMonthlyUSD?: number;     // cap on combined cloud-GPU $/mo across applied deltas
 }
 
 export const DEFAULT_CONSTRAINTS: Constraints = {
   allowDiscreteGpu: true,
   maxNvmeSlotsPerNode: 4,
 };
+
+/** Sum of monthly cloud-GPU spend implied by the given deltas. */
+export function cloudGpuMonthlySpendUSD(deltas: Delta[]): number {
+  return deltas.reduce(
+    (a, d) => a + (d.kind === "add-cloud-gpu" ? d.monthlyUSD : 0),
+    0,
+  );
+}
 
 const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
   "add-ups": ["reliability", "space"],
@@ -211,7 +220,7 @@ function metaFor(cfg: HomelabConfig, delta: Delta) {
 function checkConstraints(
   cfg: HomelabConfig,
   delta: Delta,
-  cumulative: { upfrontUSD: number; addedNodes: number; monthlyCostAfterUSD: number },
+  cumulative: { upfrontUSD: number; addedNodes: number; monthlyCostAfterUSD: number; cloudGpuMonthlyUSD: number },
   c: Constraints,
 ): string[] {
   const reasons: string[] = [];
@@ -229,6 +238,15 @@ function checkConstraints(
   ) {
     reasons.push(
       `Would push monthly power to $${cumulative.monthlyCostAfterUSD} (cap $${c.maxMonthlyPowerCostUSD}).`,
+    );
+  }
+  if (
+    c.maxCloudGpuMonthlyUSD != null &&
+    delta.kind === "add-cloud-gpu" &&
+    cumulative.cloudGpuMonthlyUSD + delta.monthlyUSD > c.maxCloudGpuMonthlyUSD
+  ) {
+    reasons.push(
+      `Cloud GPU spend would hit $${cumulative.cloudGpuMonthlyUSD + delta.monthlyUSD}/mo (cap $${c.maxCloudGpuMonthlyUSD}).`,
     );
   }
   if (c.maxAddedNodes != null && cumulative.addedNodes + meta.addedNodes > c.maxAddedNodes) {
@@ -421,6 +439,7 @@ export function applyConstraints(
     upfrontUSD: 0,
     addedNodes: 0,
     monthlyCostAfterUSD: evaluate(cfg).power.monthlyCostUSD,
+    cloudGpuMonthlyUSD: 0,
   };
   return recs.map((r) => {
     const nextMonthly =
@@ -432,6 +451,7 @@ export function applyConstraints(
         upfrontUSD: cumulative.upfrontUSD,
         addedNodes: cumulative.addedNodes,
         monthlyCostAfterUSD: nextMonthly,
+        cloudGpuMonthlyUSD: cumulative.cloudGpuMonthlyUSD,
       },
       constraints,
     );
@@ -439,6 +459,9 @@ export function applyConstraints(
       cumulative.upfrontUSD += r.upfrontCostUSD;
       cumulative.addedNodes += r.addedNodes;
       cumulative.monthlyCostAfterUSD = nextMonthly;
+      if (r.delta.kind === "add-cloud-gpu") {
+        cumulative.cloudGpuMonthlyUSD += r.delta.monthlyUSD;
+      }
     }
     return { ...r, feasible: reasons.length === 0, blockedReasons: reasons };
   });

@@ -15,6 +15,7 @@ import {
   applyConstraints,
   recommendDeltas,
   rankRecommendations,
+  cloudGpuMonthlySpendUSD,
   DEFAULT_WEIGHTS,
   DEFAULT_CONSTRAINTS,
   type Delta,
@@ -26,7 +27,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
-import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info, Check, VolumeX, Plug, Ruler, ExternalLink, ShoppingCart, Download, FileText } from "lucide-react";
+import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info, Check, VolumeX, Plug, Ruler, ExternalLink, ShoppingCart, Download, FileText, AlertTriangle } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import type { Recommendation } from "@/lib/engine/simulate";
 import type { HomelabConfig } from "@/lib/engine/types";
@@ -317,6 +318,7 @@ th{background:#f4f4f5}
 
       <PriorityFilters weights={weights} onChange={setWeights} />
       <ConstraintsPanel constraints={constraints} onChange={setConstraints} />
+      <CloudGpuSpendWarning deltas={deltas} cap={constraints.maxCloudGpuMonthlyUSD} />
 
 
 
@@ -1297,6 +1299,29 @@ function UpgradeComparison({ cfg, deltas }: { cfg: HomelabConfig; deltas: Delta[
 }
 
 
+function CloudGpuSpendWarning({ deltas, cap }: { deltas: Delta[]; cap?: number }) {
+  if (cap == null) return null;
+  const spend = cloudGpuMonthlySpendUSD(deltas);
+  if (spend <= cap) return null;
+  const over = spend - cap;
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+    >
+      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+      <div className="space-y-0.5">
+        <div className="font-medium">
+          Cloud GPU spend over cap: ${spend.toFixed(2)}/mo (limit ${cap}/mo, +${over.toFixed(2)} over).
+        </div>
+        <div className="text-xs opacity-80">
+          Remove a cloud-GPU delta, lower its monthly estimate, or raise the cap in Constraints.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConstraintsPanel({
   constraints,
   onChange,
@@ -1352,6 +1377,18 @@ function ConstraintsPanel({
             value={constraints.maxNvmeSlotsPerNode ?? ""}
             onChange={(e) => update("maxNvmeSlotsPerNode", numOrUndef(e.target.value))}
           />
+        </div>
+        <div className="md:col-span-4">
+          <Label className="text-xs">Max cloud GPU spend ($/mo)</Label>
+          <Input
+            type="number"
+            placeholder="unlimited"
+            value={constraints.maxCloudGpuMonthlyUSD ?? ""}
+            onChange={(e) => update("maxCloudGpuMonthlyUSD", numOrUndef(e.target.value))}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Combined monthly cost across all applied cloud-GPU deltas. Recommendations that would exceed this cap are blocked, and a warning appears when your simulated scenario is over.
+          </p>
         </div>
         <div className="md:col-span-4 flex items-center justify-between border-t pt-3">
           <div>
