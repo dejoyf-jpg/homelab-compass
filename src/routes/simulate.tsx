@@ -153,15 +153,171 @@ function Simulate() {
     );
 
 
+  const exportReport = (format: "csv" | "html") => {
+    const baseEval = evaluate(cfg);
+    const simEval = evaluate(simulatedCfg);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const allRecs = applyConstraints(simulatedCfg, rankedRecommendations, constraints);
+    if (format === "csv") {
+      const rows: string[][] = [];
+      const push = (...r: string[]) => rows.push(r);
+      const esc = (v: string | number) => {
+        const s = String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      push("HomelabIQ Report", new Date().toISOString());
+      push("");
+      push("== Constraints ==");
+      push("Key", "Value");
+      Object.entries(constraints).forEach(([k, v]) =>
+        push(k, v === undefined || v === null ? "" : String(v)),
+      );
+      push("");
+      push("== Priority weights (0=Off, 3=High) ==");
+      push("Category", "Weight");
+      Object.entries(weights).forEach(([k, v]) => push(k, String(v ?? "")));
+      push("");
+      push("== Scenario (applied deltas) ==");
+      push("#", "Change");
+      deltas.forEach((d, i) => push(String(i + 1), describeDelta(d, cfg)));
+      if (deltas.length === 0) push("(none)", "");
+      push("");
+      push("== Before/After metric deltas ==");
+      push("Metric", "Baseline", "Simulated", "Delta");
+      push(
+        "Overall",
+        String(baseEval.overall),
+        String(simEval.overall),
+        String(simEval.overall - baseEval.overall),
+      );
+      baseEval.dimensions.forEach((b, i) => {
+        const s = simEval.dimensions[i];
+        push(
+          b.label,
+          String(Math.round(b.score)),
+          String(Math.round(s.score)),
+          String(Math.round(s.score - b.score)),
+        );
+      });
+      push(
+        "Monthly power (USD)",
+        String(baseEval.power.monthlyCostUSD),
+        String(simEval.power.monthlyCostUSD),
+        (simEval.power.monthlyCostUSD - baseEval.power.monthlyCostUSD).toFixed(2),
+      );
+      push("");
+      push("== Recommended upgrades ==");
+      push("Label", "Reason", "Gain", "Upfront $", "Monthly $", "Categories", "Feasible", "Blocked reasons");
+      allRecs.forEach((r) =>
+        push(
+          r.label,
+          r.reason,
+          String(r.gain),
+          String(r.upfrontCostUSD),
+          r.monthlyCostDeltaUSD.toFixed(2),
+          r.categories.join("|"),
+          r.feasible ? "yes" : "no",
+          r.blockedReasons.join("; "),
+        ),
+      );
+      const csv = rows.map((r) => r.map(esc).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `homelabiq-report-${stamp}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("CSV report downloaded");
+    } else {
+      const esc = (s: string) =>
+        s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+      const dimRows = baseEval.dimensions
+        .map((b, i) => {
+          const s = simEval.dimensions[i];
+          const delta = Math.round(s.score - b.score);
+          return `<tr><td>${esc(b.label)}</td><td>${Math.round(b.score)}</td><td>${Math.round(
+            s.score,
+          )}</td><td style="color:${delta > 0 ? "#059669" : delta < 0 ? "#dc2626" : "#666"}">${
+            delta > 0 ? "+" : ""
+          }${delta}</td></tr>`;
+        })
+        .join("");
+      const recRows = allRecs
+        .map(
+          (r) =>
+            `<tr><td>${esc(r.label)}</td><td>${esc(r.reason)}</td><td>+${r.gain}</td><td>$${
+              r.upfrontCostUSD
+            }</td><td>$${r.monthlyCostDeltaUSD.toFixed(2)}</td><td>${esc(
+              r.categories.join(", "),
+            )}</td><td>${r.feasible ? "✓" : "✗"}</td><td>${esc(r.blockedReasons.join("; "))}</td></tr>`,
+        )
+        .join("");
+      const deltaRows = deltas.length
+        ? deltas.map((d, i) => `<tr><td>${i + 1}</td><td>${esc(describeDelta(d, cfg))}</td></tr>`).join("")
+        : `<tr><td colspan="2"><em>None applied</em></td></tr>`;
+      const constraintRows = Object.entries(constraints)
+        .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v === undefined || v === null ? "—" : String(v))}</td></tr>`)
+        .join("");
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>HomelabIQ report</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#111}
+h1{margin-bottom:0}h2{margin-top:2rem;border-bottom:1px solid #ddd;padding-bottom:.3rem}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:.5rem}
+th,td{border:1px solid #e5e7eb;padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#f4f4f5}
+.meta{color:#666;font-size:12px}
+@media print{.no-print{display:none}}
+</style></head><body>
+<h1>HomelabIQ report</h1>
+<p class="meta">Generated ${new Date().toLocaleString()}</p>
+<p class="no-print"><button onclick="window.print()">Print / Save as PDF</button></p>
+<h2>Constraints</h2><table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>${constraintRows}</tbody></table>
+<h2>Applied scenario</h2><table><thead><tr><th>#</th><th>Change</th></tr></thead><tbody>${deltaRows}</tbody></table>
+<h2>Before / after metric deltas</h2>
+<table><thead><tr><th>Metric</th><th>Baseline</th><th>Simulated</th><th>Δ</th></tr></thead>
+<tbody><tr><td><strong>Overall</strong></td><td>${baseEval.overall}</td><td>${simEval.overall}</td><td>${
+        simEval.overall - baseEval.overall >= 0 ? "+" : ""
+      }${simEval.overall - baseEval.overall}</td></tr>${dimRows}
+<tr><td>Monthly power (USD)</td><td>$${baseEval.power.monthlyCostUSD}</td><td>$${
+        simEval.power.monthlyCostUSD
+      }</td><td>${(simEval.power.monthlyCostUSD - baseEval.power.monthlyCostUSD).toFixed(2)}</td></tr>
+</tbody></table>
+<h2>Recommended upgrades</h2>
+<table><thead><tr><th>Upgrade</th><th>Reason</th><th>Gain</th><th>Upfront</th><th>$/mo</th><th>Categories</th><th>Feasible</th><th>Blocked reasons</th></tr></thead>
+<tbody>${recRows || `<tr><td colspan="8"><em>None</em></td></tr>`}</tbody></table>
+</body></html>`;
+      const w = window.open("", "_blank");
+      if (w) {
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        toast.success("Report opened — use Print → Save as PDF");
+      } else {
+        toast.error("Popup blocked — allow popups to export the PDF view");
+      }
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Simulate upgrades</h1>
-        <p className="text-muted-foreground mt-1">Stack changes and see side-by-side scoring.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Simulate upgrades</h1>
+          <p className="text-muted-foreground mt-1">Stack changes and see side-by-side scoring.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportReport("csv")}>
+            <Download className="h-4 w-4 mr-1.5" /> Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportReport("html")}>
+            <FileText className="h-4 w-4 mr-1.5" /> Export PDF
+          </Button>
+        </div>
       </div>
 
       <PriorityFilters weights={weights} onChange={setWeights} />
       <ConstraintsPanel constraints={constraints} onChange={setConstraints} />
+
 
 
 
