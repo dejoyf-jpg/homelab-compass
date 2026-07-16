@@ -19,7 +19,10 @@ import {
   type RecCategory,
 } from "@/lib/engine/simulate";
 import { Toggle } from "@/components/ui/toggle";
-import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network } from "lucide-react";
+import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info } from "lucide-react";
+import type { Recommendation } from "@/lib/engine/simulate";
+import type { HomelabConfig } from "@/lib/engine/types";
+
 
 
 
@@ -84,23 +87,17 @@ function Simulate() {
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
                   Suggested upgrades
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {recommendations.slice(0, 4).map((r, i) => (
-                    <Button
+                    <SuggestionCard
                       key={i}
-                      size="sm"
-                      variant="secondary"
-                      className="h-auto py-1.5"
-                      onClick={() => setDeltas([...deltas, r.delta])}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      <span>{r.label}</span>
-                      {r.gain > 0 && (
-                        <span className="ml-2 text-xs text-emerald-600">+{r.gain}</span>
-                      )}
-                    </Button>
+                      cfg={simulatedCfg}
+                      rec={r}
+                      onAdd={() => setDeltas([...deltas, r.delta])}
+                    />
                   ))}
                 </div>
+
               </div>
             )}
             <AddDeltaForm cfg={cfg} onAdd={(d) => setDeltas([...deltas, d])} />
@@ -242,7 +239,135 @@ const PRIORITY_OPTIONS: { key: RecCategory; label: string; icon: typeof Zap; hin
   { key: "cost", label: "Low running cost", icon: DollarSign, hint: "Penalize $/mo power increases" },
 ];
 
+function SuggestionCard({
+  cfg,
+  rec,
+  onAdd,
+}: {
+  cfg: HomelabConfig;
+  rec: Recommendation;
+  onAdd: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const impact = useMemo(() => {
+    const before = evaluate(cfg);
+    const after = evaluate(applyDeltas(cfg, [rec.delta]));
+    const dims = before.dimensions.map((b, i) => ({
+      key: b.key,
+      label: b.label,
+      before: Math.round(b.score),
+      after: Math.round(after.dimensions[i].score),
+      delta: Math.round(after.dimensions[i].score - b.score),
+    }));
+    return {
+      dims,
+      changed: dims.filter((d) => d.delta !== 0),
+      powerBefore: before.power.monthlyCostUSD,
+      powerAfter: after.power.monthlyCostUSD,
+      bottlenecksResolved: before.bottlenecks.filter((b) => !after.bottlenecks.includes(b)),
+    };
+  }, [cfg, rec.delta]);
+
+  return (
+    <div className="rounded-md border bg-background">
+      <div className="flex items-start justify-between gap-2 p-2.5">
+        <button
+          type="button"
+          className="flex-1 min-w-0 text-left flex items-start gap-2"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+        >
+          <ChevronDown
+            className={`h-4 w-4 mt-0.5 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+          />
+          <div className="min-w-0">
+            <div className="text-sm font-medium truncate">{rec.label}</div>
+            <div className="text-xs text-muted-foreground truncate">{rec.reason}</div>
+          </div>
+        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {rec.gain > 0 && (
+            <Badge variant="secondary" className="tabular-nums">+{rec.gain}</Badge>
+          )}
+          <Button size="sm" variant="outline" onClick={onAdd}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+          </Button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="border-t px-3 py-2.5 space-y-2 bg-muted/20">
+          <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>Applied on top of the currently simulated config.</span>
+          </div>
+
+          <div>
+            <div className="text-xs font-medium mb-1">Metric impact</div>
+            {impact.changed.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                No dimension score changes — this is a qualitative improvement (e.g. capability unlocked).
+              </div>
+            ) : (
+              <div className="grid gap-1">
+                {impact.changed.map((d) => (
+                  <div key={d.key} className="flex items-center justify-between text-xs">
+                    <span>{d.label}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {d.before} → <span className="text-foreground">{d.after}</span>
+                      <span className={`ml-1.5 ${d.delta > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        ({d.delta > 0 ? "+" : ""}{d.delta})
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between text-xs pt-1 border-t">
+            <span className="text-muted-foreground">Monthly power</span>
+            <span className="tabular-nums">
+              ${impact.powerBefore} → ${impact.powerAfter}
+              {impact.powerAfter !== impact.powerBefore && (
+                <span
+                  className={`ml-1.5 ${
+                    impact.powerAfter > impact.powerBefore ? "text-destructive" : "text-emerald-600"
+                  }`}
+                >
+                  ({impact.powerAfter > impact.powerBefore ? "+" : ""}$
+                  {(impact.powerAfter - impact.powerBefore).toFixed(2)})
+                </span>
+              )}
+            </span>
+          </div>
+
+          {impact.bottlenecksResolved.length > 0 && (
+            <div>
+              <div className="text-xs font-medium mb-1">Bottlenecks resolved</div>
+              <ul className="text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
+                {impact.bottlenecksResolved.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-1 pt-1">
+            {rec.categories.map((c) => (
+              <span key={c} className="rounded bg-muted px-1.5 py-0.5 text-[10px] capitalize">
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PriorityFilters({
+
   weights,
   onChange,
 }: {
