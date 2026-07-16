@@ -235,6 +235,57 @@ function Simulate() {
   );
 }
 
+const PRIORITY_OPTIONS: { key: RecCategory; label: string; icon: typeof Zap; hint: string }[] = [
+  { key: "performance", label: "Performance", icon: Zap, hint: "CPU, RAM, GPU, storage speed" },
+  { key: "reliability", label: "Reliability", icon: ShieldCheck, hint: "UPS, offsite backup, HA" },
+  { key: "network", label: "Network", icon: Network, hint: "LAN/WAN, managed switch, VLANs" },
+  { key: "cost", label: "Low running cost", icon: DollarSign, hint: "Penalize $/mo power increases" },
+];
+
+function PriorityFilters({
+  weights,
+  onChange,
+}: {
+  weights: PriorityWeights;
+  onChange: (w: PriorityWeights) => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="py-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mr-2">
+          Prioritize
+        </span>
+        {PRIORITY_OPTIONS.map(({ key, label, icon: Icon, hint }) => {
+          const on = (weights[key] ?? 0) > 0;
+          return (
+            <Toggle
+              key={key}
+              pressed={on}
+              onPressedChange={(v) => onChange({ ...weights, [key]: v ? 1 : 0 })}
+              variant="outline"
+              size="sm"
+              title={hint}
+              className="gap-1.5"
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </Toggle>
+          );
+        })}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto text-xs"
+          onClick={() => onChange(DEFAULT_WEIGHTS)}
+        >
+          Reset
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 function Delta({ n }: { n: number }) {
   if (n === 0) return null;
   const good = n > 0;
