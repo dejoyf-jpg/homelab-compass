@@ -518,8 +518,38 @@ function SuggestionCard({
       powerBefore: before.power.monthlyCostUSD,
       powerAfter: after.power.monthlyCostUSD,
       bottlenecksResolved: before.bottlenecks.filter((b) => !after.bottlenecks.includes(b)),
+      bottlenecksRemaining: after.bottlenecks,
     };
   }, [cfg, rec.delta]);
+
+  const confidence = useMemo(() => {
+    let score = 2; // 0 low, 1 medium, 2 high
+    const notes: string[] = [];
+    if (!rec.feasible || rec.blockedReasons.length > 0) {
+      score = 0;
+      notes.push("Blocked by current constraints — deltas assume the blockers are resolved.");
+    }
+    if (rec.requiresDiscreteGpu) {
+      score = Math.min(score, 1);
+      notes.push("Assumes a PCIe x16 slot and adequate PSU headroom for a discrete GPU.");
+    }
+    if (rec.requiresFreeNvmeSlot) {
+      score = Math.min(score, 1);
+      notes.push("Assumes a free M.2 NVMe slot on the target node.");
+    }
+    if (impact.changed.length === 0 && impact.bottlenecksResolved.length === 0) {
+      score = Math.min(score, 1);
+      notes.push("No modeled score change — benefit is qualitative and harder to quantify.");
+    }
+    if (rec.upfrontCostUSD === 0) {
+      notes.push("Upfront cost not estimated for this class of change.");
+    }
+    const label = (["Low", "Medium", "High"] as const)[score];
+    const tone =
+      score === 2 ? "text-emerald-600" : score === 1 ? "text-amber-600" : "text-destructive";
+    return { label, tone, notes };
+  }, [rec, impact]);
+
 
   return (
     <div className="rounded-md border bg-background">
