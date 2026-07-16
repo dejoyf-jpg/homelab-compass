@@ -210,8 +210,14 @@ function Simulate() {
                         {r.monthlyCostDeltaUSD > 0 ? "+" : ""}${r.monthlyCostDeltaUSD}/mo
                       </span>
                     )}
+                    {r.upfrontCostUSD > 0 && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 tabular-nums">
+                        ~${r.upfrontCostUSD} upfront
+                      </span>
+                    )}
                   </div>
                 </div>
+
                 <div className="flex items-center gap-2 shrink-0">
                   {r.gain > 0 && (
                     <Badge variant="secondary" className="tabular-nums">
