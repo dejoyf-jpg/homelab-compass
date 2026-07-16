@@ -302,6 +302,14 @@ function Simulate() {
                       +{r.gain} overall
                     </Badge>
                   )}
+                  <Toggle
+                    size="sm"
+                    pressed={stagedKeys.has(r.label)}
+                    onPressedChange={() => toggleStaged(r.label)}
+                    aria-label="Compare this upgrade"
+                  >
+                    Compare
+                  </Toggle>
                   <Button size="sm" onClick={() => applyRecommendation(r)}>
                     <Plus className="h-4 w-4 mr-1" /> Apply & recalc
                   </Button>
