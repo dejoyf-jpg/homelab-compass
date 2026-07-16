@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Component, useMemo, type ErrorInfo, type ReactNode } from "react";
+import { Component, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,8 @@ import {
   recommendModelsForWorkloadSafe,
   type ModelRecommendation,
 } from "@/lib/engine/models-catalog";
-import { AlertTriangle, Plus, Trash2, Cloud, Server, Sparkles } from "lucide-react";
+import { CustomModelSchema, type CustomModel } from "@/lib/engine/types";
+import { AlertTriangle, Plus, Trash2, Cloud, Server, Sparkles, Pencil, Save, Wrench } from "lucide-react";
 import type { HomelabConfig, Workload } from "@/lib/engine/types";
 
 
