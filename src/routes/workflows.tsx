@@ -158,3 +158,84 @@ function ParamFields({ workload, onChange }: { workload: Workload; onChange: (w:
       return null;
   }
 }
+
+function ModelRecommendations({ cfg, workload }: { cfg: HomelabConfig; workload: Workload }) {
+  const recs = useMemo(() => recommendModelsForWorkload(cfg, workload), [cfg, workload]);
+  const local = recs.filter((r) => r.model.hosting === "local");
+  const hosted = recs.filter((r) => r.model.hosting === "hosted");
+
+  return (
+    <div className="rounded-md border border-dashed p-3 space-y-3 bg-muted/20">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <Sparkles className="h-3.5 w-3.5 text-primary" />
+        Recommended models & default parameters
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-xs font-medium">
+          <Server className="h-3.5 w-3.5" /> Self-hosted (Ollama / llama.cpp)
+        </div>
+        {local.map((r) => <RecRow key={r.model.id} rec={r} />)}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-xs font-medium">
+          <Cloud className="h-3.5 w-3.5" /> Hosted / external API
+        </div>
+        {hosted.map((r) => <RecRow key={r.model.id} rec={r} />)}
+      </div>
+    </div>
+  );
+}
+
+function RecRow({ rec }: { rec: ModelRecommendation }) {
+  const { model, fit, detail, estimatedMonthlyCostUSD } = rec;
+  const badge =
+    fit === "ok" ? { v: "default" as const, t: "fits" } :
+    fit === "tight" ? { v: "secondary" as const, t: "tight" } :
+    fit === "insufficient" ? { v: "destructive" as const, t: "n/a" } :
+    { v: "outline" as const, t: "hosted" };
+
+  return (
+    <div className="rounded border bg-background p-2 space-y-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-medium truncate">
+            {model.name}{" "}
+            <span className="text-xs text-muted-foreground font-normal">· {model.vendor}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">{detail}</div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {estimatedMonthlyCostUSD != null && (
+            <span className="text-xs tabular-nums">${estimatedMonthlyCostUSD}/mo</span>
+          )}
+          <Badge variant={badge.v}>{badge.t}</Badge>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5 text-[10px]">
+        <ParamPill k="temp" v={model.defaults.temperature} />
+        <ParamPill k="top_p" v={model.defaults.topP} />
+        <ParamPill k="max_out" v={model.defaults.maxOutputTokens} />
+        <ParamPill k="ctx" v={model.defaults.contextTokens} />
+        {model.weightsGB && <ParamPill k="weights" v={`${model.weightsGB}GB`} />}
+        {model.minVramGB && <ParamPill k="min_vram" v={`${model.minVramGB}GB`} />}
+        {model.endpoint && <ParamPill k="endpoint" v={model.endpoint.replace(/^https?:\/\//, "")} />}
+      </div>
+      {model.strengths.length > 0 && (
+        <div className="text-[11px] text-muted-foreground">
+          {model.strengths.join(" · ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParamPill({ k, v }: { k: string; v: string | number }) {
+  return (
+    <span className="rounded bg-muted px-1.5 py-0.5 font-mono tabular-nums">
+      {k}={v}
+    </span>
+  );
+}
+
