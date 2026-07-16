@@ -260,6 +260,7 @@ export function evaluate(cfg: HomelabConfig): Evaluation {
     scoreNetwork(cfg),
     scorePower(cfg),
     scoreReliability(cfg),
+    scoreNoise(cfg),
   ];
   const overall = Math.round(dims.reduce((a, d) => a + d.score, 0) / dims.length);
   const bottlenecks = dims
