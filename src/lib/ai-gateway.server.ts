@@ -8,6 +8,7 @@ export async function chatCompletion(opts: {
   messages: ChatMessage[];
   jsonMode?: boolean;
   temperature?: number;
+  maxTokens?: number;
 }): Promise<string> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
@@ -15,6 +16,7 @@ export async function chatCompletion(opts: {
   const body: Record<string, unknown> = {
     model: opts.model,
     messages: opts.messages,
+    max_tokens: opts.maxTokens ?? 8192,
   };
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
   if (opts.jsonMode) body.response_format = { type: "json_object" };
@@ -36,7 +38,12 @@ export async function chatCompletion(opts: {
     throw new Error(`AI gateway error ${res.status}: ${text.slice(0, 200)}`);
   }
   const json = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
+    choices?: { message?: { content?: string }; finish_reason?: string }[];
   };
-  return json.choices?.[0]?.message?.content ?? "";
+  const choice = json.choices?.[0];
+  if (choice?.finish_reason === "length") {
+    throw new Error("AI response was truncated. Shorten your description or try again.");
+  }
+  return choice?.message?.content ?? "";
 }
+
