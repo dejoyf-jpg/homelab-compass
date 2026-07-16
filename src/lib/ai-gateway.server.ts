@@ -41,9 +41,10 @@ export async function chatCompletion(opts: {
     choices?: { message?: { content?: string }; finish_reason?: string }[];
   };
   const choice = json.choices?.[0];
-  if (choice?.finish_reason === "length") {
+  const content = choice?.message?.content ?? "";
+  if (choice?.finish_reason === "length" && !content) {
     throw new Error("AI response was truncated. Shorten your description or try again.");
   }
-  return choice?.message?.content ?? "";
+  return content;
 }
 
