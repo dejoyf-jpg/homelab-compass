@@ -497,7 +497,138 @@ const PRIORITY_OPTIONS: {
 const WEIGHT_LABELS = ["Off", "Low", "Med", "High"] as const;
 
 
+interface ShoppingItem {
+  what: string;
+  sizing: string;
+  links: { name: string; url: string }[];
+}
+
+function amazon(q: string) {
+  return `https://www.amazon.com/s?k=${encodeURIComponent(q)}`;
+}
+function newegg(q: string) {
+  return `https://www.newegg.com/p/pl?d=${encodeURIComponent(q)}`;
+}
+function pcpp(q: string) {
+  return `https://pcpartpicker.com/search/?q=${encodeURIComponent(q)}`;
+}
+
+function shoppingForDelta(d: Delta): ShoppingItem[] {
+  switch (d.kind) {
+    case "add-ram":
+      return [
+        {
+          what: `${d.gb} GB DDR4/DDR5 memory kit`,
+          sizing: `Assumes 2× ${Math.round(d.gb / 2)} GB modules at the node's native speed; check your board's max capacity and QVL.`,
+          links: [
+            { name: "Amazon", url: amazon(`${d.gb}GB DDR4 desktop memory kit`) },
+            { name: "Newegg", url: newegg(`${d.gb}GB DDR4 memory kit`) },
+            { name: "PCPartPicker", url: pcpp(`${d.gb}GB memory`) },
+          ],
+        },
+      ];
+    case "add-gpu":
+      return [
+        {
+          what: `${d.model} (${d.vramGB} GB VRAM, ${d.tier} tier)`,
+          sizing: `Assumes a free PCIe x16 slot, ≥2 slots of clearance, and ~${d.vramGB >= 16 ? 650 : 550}W PSU headroom.`,
+          links: [
+            { name: "Amazon", url: amazon(`${d.model} graphics card`) },
+            { name: "Newegg", url: newegg(`${d.model} GPU`) },
+            { name: "PCPartPicker", url: pcpp(`${d.model}`) },
+          ],
+        },
+      ];
+    case "add-nvme":
+      return [
+        {
+          what: `${d.sizeGB} GB NVMe M.2 SSD (PCIe 4.0 preferred)`,
+          sizing: `Assumes a free M.2 slot on the target node with a heatsink; TBW rating should match your write workload.`,
+          links: [
+            { name: "Amazon", url: amazon(`${d.sizeGB}GB NVMe M.2 SSD PCIe 4.0`) },
+            { name: "Newegg", url: newegg(`${d.sizeGB}GB NVMe SSD`) },
+          ],
+        },
+      ];
+    case "upgrade-lan":
+      return [
+        {
+          what: `${d.gbps} GbE NICs for each node + matching switch`,
+          sizing: `Assumes ${d.gbps >= 10 ? "SFP+ DAC or Cat6a runs under 55 m" : "Cat5e/Cat6 cabling is sufficient"}; one NIC per node plus one uplink port.`,
+          links: [
+            { name: `${d.gbps}GbE NIC (Amazon)`, url: amazon(`${d.gbps}GbE network card ${d.gbps >= 10 ? "SFP+" : "RJ45"}`) },
+            { name: `${d.gbps}GbE switch (Amazon)`, url: amazon(`${d.gbps}GbE unmanaged switch`) },
+            { name: "Newegg", url: newegg(`${d.gbps}GbE switch`) },
+          ],
+        },
+      ];
+    case "upgrade-wan":
+      return [
+        {
+          what: `ISP plan at ${d.downMbps}/${d.upMbps} Mbps`,
+          sizing: `Service change, not hardware. Assumes your router/ONT already supports this tier.`,
+          links: [
+            { name: "Compare ISPs (BroadbandNow)", url: `https://broadbandnow.com/search?q=${d.downMbps}+mbps` },
+            { name: "FCC broadband map", url: "https://broadbandmap.fcc.gov/" },
+          ],
+        },
+      ];
+    case "add-ups":
+      return [
+        {
+          what: "Line-interactive UPS with pure sine wave, ~1000–1500 VA",
+          sizing: "Assumes total node draw under ~600 W; size for 10–15 min runtime for clean shutdown via NUT/apcupsd.",
+          links: [
+            { name: "APC Back-UPS (Amazon)", url: amazon("APC Back-UPS Pro 1500VA pure sine") },
+            { name: "CyberPower (Newegg)", url: newegg("CyberPower CP1500PFCLCD") },
+            { name: "Eaton 5S (Amazon)", url: amazon("Eaton 5S 1500 UPS") },
+          ],
+        },
+      ];
+    case "add-offsite":
+      return [
+        {
+          what: "Offsite backup target (object storage or a second location)",
+          sizing: "Assumes ≤2 TB of critical data with weekly full + daily incremental via restic/Borg/Kopia; encrypt client-side.",
+          links: [
+            { name: "Backblaze B2", url: "https://www.backblaze.com/cloud-storage" },
+            { name: "Wasabi", url: "https://wasabi.com/pricing/" },
+            { name: "rsync.net", url: "https://www.rsync.net/products/" },
+            { name: "Storj", url: "https://www.storj.io/pricing" },
+          ],
+        },
+      ];
+    case "add-managed-switch":
+      return [
+        {
+          what: "8–16 port managed switch with VLAN + LACP",
+          sizing: "Assumes ≤12 wired endpoints and a single uplink; pick fanless for quiet racks.",
+          links: [
+            { name: "MikroTik CRS (Amazon)", url: amazon("MikroTik CRS310 managed switch") },
+            { name: "TP-Link Omada (Amazon)", url: amazon("TP-Link Omada managed switch 8 port") },
+            { name: "Ubiquiti (UI Store)", url: "https://store.ui.com/us/en/category/all-switching" },
+          ],
+        },
+      ];
+    case "add-node":
+      return [
+        {
+          what: `Additional node (${d.node.name || "compute host"})`,
+          sizing: `Assumes ~${d.node.ramGB || 32} GB RAM and ${d.node.cpu?.cores || 6} cores as a Proxmox/K3s worker; add UPS outlet + switch port.`,
+          links: [
+            { name: "Mini PC (Amazon)", url: amazon("Beelink SER8 mini PC 32GB") },
+            { name: "Refurb SFF (Amazon)", url: amazon("Lenovo ThinkCentre M720q tiny 32GB") },
+            { name: "ServerBuilds", url: "https://serverbuilds.net/" },
+          ],
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
 function SuggestionCard({
+
   cfg,
   rec,
   onAdd,
