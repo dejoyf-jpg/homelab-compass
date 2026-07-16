@@ -636,6 +636,60 @@ function SuggestionCard({
             </div>
           )}
 
+          <div className="pt-1 border-t">
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs font-medium">Assumptions & confidence</div>
+              <span className={`text-xs font-medium ${confidence.tone}`}>
+                {confidence.label} confidence
+              </span>
+            </div>
+            <ul className="text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
+              <li>
+                Upfront cost estimate:{" "}
+                {rec.upfrontCostUSD > 0 ? `~$${rec.upfrontCostUSD}` : "not modeled"} (varies by
+                vendor, region, and used vs. new).
+              </li>
+              <li>
+                Monthly running cost delta: {rec.monthlyCostDeltaUSD >= 0 ? "+" : ""}$
+                {rec.monthlyCostDeltaUSD.toFixed(2)} — based on the electricity rate and duty cycle
+                in your Config.
+              </li>
+              <li>
+                Score gain (+{rec.gain}) uses your current priority slider weights; re-weighting
+                Performance/Reliability/Network/Cost/Power/Noise/Space will re-rank this card.
+              </li>
+              {rec.addedNodes > 0 && (
+                <li>
+                  Adds {rec.addedNodes} physical unit{rec.addedNodes === 1 ? "" : "s"} — assumes
+                  rack/shelf space and a spare Ethernet port are available.
+                </li>
+              )}
+              {confidence.notes.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+              {rec.blockedReasons.map((b) => (
+                <li key={b} className="text-destructive/80">Blocker: {b}</li>
+              ))}
+            </ul>
+            <div className="mt-2">
+              <div className="text-xs font-medium mb-1">What would change the result</div>
+              <ul className="text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
+                <li>Adjusting electricity rate or average utilization in Config.</li>
+                <li>Applying other upgrades first — bottlenecks may shift onto a different subsystem.</li>
+                <li>Changing workload mix (VMs, containers, LLM inference) or expected concurrency.</li>
+                {impact.bottlenecksRemaining.length > 0 && (
+                  <li>
+                    Remaining bottlenecks after this change:{" "}
+                    {impact.bottlenecksRemaining.slice(0, 3).join(", ")}
+                    {impact.bottlenecksRemaining.length > 3 ? "…" : ""}.
+                  </li>
+                )}
+                <li>Retuning the priority sliders above (Boost / Avoid weights).</li>
+              </ul>
+            </div>
+          </div>
+
+
           <div className="flex flex-wrap gap-1 pt-1">
             {rec.categories.map((c) => (
               <span key={c} className="rounded bg-muted px-1.5 py-0.5 text-[10px] capitalize">
