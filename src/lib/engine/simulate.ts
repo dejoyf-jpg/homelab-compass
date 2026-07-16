@@ -1,4 +1,5 @@
 import type { HomelabConfig, Node } from "./types";
+import { evaluate } from "./score";
 
 export type Delta =
   | { kind: "add-ram"; nodeId: string; gb: number }
@@ -10,6 +11,7 @@ export type Delta =
   | { kind: "add-offsite" }
   | { kind: "add-managed-switch" }
   | { kind: "add-node"; node: Node };
+
 
 export function applyDeltas(cfg: HomelabConfig, deltas: Delta[]): HomelabConfig {
   const next: HomelabConfig = structuredClone(cfg);
