@@ -585,6 +585,71 @@ function SuggestionCard({
             <span>Applied on top of the currently simulated config.</span>
           </div>
 
+          <div className="rounded border bg-background/60 p-2">
+            <div className="text-xs font-medium mb-1">Why this improves the evaluation</div>
+            {impact.changed.length === 0 && impact.bottlenecksResolved.length === 0 && rec.gain === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{rec.label}</span> doesn't move any
+                dimension score on its own — it's included because it unlocks capability or
+                prepares the ground for other upgrades ({rec.reason.toLowerCase()}).
+              </p>
+            ) : (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>
+                  <span className="font-medium text-foreground">{rec.label}</span>{" "}
+                  {rec.reason.toLowerCase()}, which is why the ranker projects an overall{" "}
+                  <span className="text-foreground font-medium">+{rec.gain}</span> gain.
+                </p>
+                {impact.changed.length > 0 && (
+                  <p>
+                    That gain shows up in the metrics below as{" "}
+                    {impact.changed.map((d, i) => (
+                      <span key={d.key}>
+                        {i > 0 && (i === impact.changed.length - 1 ? " and " : ", ")}
+                        <span className="text-foreground">{d.label}</span>{" "}
+                        {d.before}→{d.after}{" "}
+                        <span className={d.delta > 0 ? "text-emerald-600" : "text-destructive"}>
+                          ({d.delta > 0 ? "+" : ""}{d.delta})
+                        </span>
+                      </span>
+                    ))}
+                    {impact.changed.some((d) => d.delta > 0) &&
+                      " — those specific sub-scores drive the overall improvement."}
+                  </p>
+                )}
+                {impact.bottlenecksResolved.length > 0 && (
+                  <p>
+                    It also clears{" "}
+                    {impact.bottlenecksResolved.length === 1
+                      ? "the bottleneck"
+                      : `${impact.bottlenecksResolved.length} bottlenecks`}{" "}
+                    ({impact.bottlenecksResolved.join("; ")}), which is what unlocks the jump on
+                    the affected dimension{impact.changed.length === 1 ? "" : "s"}.
+                  </p>
+                )}
+                {impact.powerAfter !== impact.powerBefore && (
+                  <p>
+                    Monthly power moves from ${impact.powerBefore} to ${impact.powerAfter}{" "}
+                    <span
+                      className={
+                        impact.powerAfter > impact.powerBefore
+                          ? "text-destructive"
+                          : "text-emerald-600"
+                      }
+                    >
+                      ({impact.powerAfter > impact.powerBefore ? "+" : ""}$
+                      {(impact.powerAfter - impact.powerBefore).toFixed(2)})
+                    </span>
+                    , which the Low-running-cost / Low-power sliders weigh against the gains
+                    above.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+
+
           <div>
             <div className="text-xs font-medium mb-1">Metric impact</div>
             {impact.changed.length === 0 ? (
