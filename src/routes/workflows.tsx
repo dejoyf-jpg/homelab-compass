@@ -244,3 +244,31 @@ function ParamPill({ k, v }: { k: string; v: string | number }) {
   );
 }
 
+class RecommendationsErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn("[workflows] ModelRecommendations crashed", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground flex items-start gap-2 bg-muted/20">
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 shrink-0" />
+          <span>
+            Couldn't render model recommendations for this workload — the response was malformed.
+            Adjust the workload parameters or try again.
+          </span>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
