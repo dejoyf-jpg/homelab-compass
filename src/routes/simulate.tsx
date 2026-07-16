@@ -59,6 +59,31 @@ function Simulate() {
         <Card>
           <CardHeader><CardTitle className="text-base">Scenario builder</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {recommendations.length > 0 && (
+              <div className="rounded-md border border-dashed p-3 space-y-2 bg-muted/20">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  Suggested upgrades
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recommendations.slice(0, 4).map((r, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant="secondary"
+                      className="h-auto py-1.5"
+                      onClick={() => setDeltas([...deltas, r.delta])}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      <span>{r.label}</span>
+                      {r.gain > 0 && (
+                        <span className="ml-2 text-xs text-emerald-600">+{r.gain}</span>
+                      )}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
             <AddDeltaForm cfg={cfg} onAdd={(d) => setDeltas([...deltas, d])} />
             <div className="space-y-2">
               {deltas.length === 0 && (
@@ -73,6 +98,7 @@ function Simulate() {
                 </div>
               ))}
             </div>
+
           </CardContent>
         </Card>
 
