@@ -1354,6 +1354,18 @@ function ConstraintsPanel({
             onChange={(e) => update("maxNvmeSlotsPerNode", numOrUndef(e.target.value))}
           />
         </div>
+        <div className="md:col-span-4">
+          <Label className="text-xs">Max cloud GPU spend ($/mo)</Label>
+          <Input
+            type="number"
+            placeholder="unlimited"
+            value={constraints.maxCloudGpuMonthlyUSD ?? ""}
+            onChange={(e) => update("maxCloudGpuMonthlyUSD", numOrUndef(e.target.value))}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Combined monthly cost across all applied cloud-GPU deltas. Recommendations that would exceed this cap are blocked, and a warning appears when your simulated scenario is over.
+          </p>
+        </div>
         <div className="md:col-span-4 flex items-center justify-between border-t pt-3">
           <div>
             <Label className="text-sm">Allow discrete GPUs</Label>
