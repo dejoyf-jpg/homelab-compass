@@ -318,6 +318,7 @@ th{background:#f4f4f5}
 
       <PriorityFilters weights={weights} onChange={setWeights} />
       <ConstraintsPanel constraints={constraints} onChange={setConstraints} />
+      <CloudGpuSpendWarning deltas={deltas} cap={constraints.maxCloudGpuMonthlyUSD} />
 
 
 
