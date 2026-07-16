@@ -65,6 +65,7 @@ export const parseIntake = createServerFn({ method: "POST" })
       model: MODEL,
       jsonMode: true,
       temperature: 0.2,
+      maxTokens: 8192,
       messages: [
         { role: "system", content: INTAKE_SYSTEM },
         { role: "user", content: data.description },
@@ -81,10 +82,17 @@ export const parseIntake = createServerFn({ method: "POST" })
       if (start === -1 || end === -1 || end <= start) {
         throw new Error("AI returned invalid JSON. Try rephrasing your description.");
       }
+      const slice = cleaned.slice(start, end + 1);
       try {
-        obj = JSON.parse(cleaned.slice(start, end + 1));
+        obj = JSON.parse(slice);
       } catch {
-        throw new Error("AI returned invalid JSON. Try rephrasing your description.");
+        const repaired = slice.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
+        try {
+          obj = JSON.parse(repaired);
+        } catch {
+          console.error("AI raw output (first 500 chars):", raw.slice(0, 500));
+          throw new Error("AI returned invalid JSON. Try rephrasing your description.");
+        }
       }
     }
     const parsed = HomelabConfigSchema.safeParse(obj);
