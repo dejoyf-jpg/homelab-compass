@@ -94,6 +94,8 @@ function Simulate() {
       </div>
 
       <PriorityFilters weights={weights} onChange={setWeights} />
+      <ConstraintsPanel constraints={constraints} onChange={setConstraints} />
+
 
 
 
