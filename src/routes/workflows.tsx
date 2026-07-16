@@ -111,7 +111,9 @@ function Workflows() {
                   <p className="text-sm text-muted-foreground">{fit.detail}</p>
                 )}
                 {w.kind === "llm-inference" && (
-                  <ModelRecommendations cfg={cfg} workload={w} />
+                  <RecommendationsErrorBoundary>
+                    <ModelRecommendations cfg={cfg} workload={w} />
+                  </RecommendationsErrorBoundary>
                 )}
               </CardContent>
 
