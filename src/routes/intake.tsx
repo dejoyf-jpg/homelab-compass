@@ -40,7 +40,9 @@ function Intake() {
     try {
       const result = await parse({ data: { description: desc } });
       setCfg(result);
-      toast.success("Parsed! Review below or head to the evaluation.");
+      const nodeCount = result.nodes?.length ?? 0;
+      toast.success(`Parsed ${nodeCount} node${nodeCount === 1 ? "" : "s"} — opening evaluation…`);
+      navigate({ to: "/evaluate" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to parse.");
     } finally {
