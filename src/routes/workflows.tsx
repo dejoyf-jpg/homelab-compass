@@ -171,7 +171,7 @@ function ParamFields({ workload, onChange }: { workload: Workload; onChange: (w:
 function ModelRecommendations({ cfg, workload }: { cfg: HomelabConfig; workload: Workload }) {
   const recs = useMemo(() => recommendModelsForWorkloadSafe(cfg, workload), [cfg, workload]);
   const local = recs.filter((r) => r.model.hosting === "local");
-  const hosted = recs.filter((r) => r.model.hosting === "hosted");
+  const hosted = recs.filter((r) => r.model.hosting === "hosted" || r.model.hosting === "custom");
 
   return (
     <div className="rounded-md border border-dashed p-3 space-y-3 bg-muted/20">
