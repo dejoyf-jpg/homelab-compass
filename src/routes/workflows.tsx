@@ -47,24 +47,74 @@ function Workflows() {
     setCfg({ ...cfg, workloads });
   };
   const remove = (i: number) => setCfg({ ...cfg, workloads: cfg.workloads.filter((_, j) => j !== i) });
-  const add = () =>
+  const add = (preset?: WorkloadPreset) =>
     setCfg({
       ...cfg,
       workloads: [
         ...cfg.workloads,
-        { id: `w-${Date.now()}`, kind: "llm-inference", label: "New workload", params: {} },
+        preset
+          ? {
+              id: `w-${Date.now()}`,
+              kind: preset.kind,
+              label: preset.label,
+              params: { ...preset.params },
+            }
+          : { id: `w-${Date.now()}`, kind: "llm-inference", label: "New workload", params: {} },
       ],
     });
 
+  const usedKinds = new Set(cfg.workloads.map((w) => w.kind));
+  const suggestedPresets = WORKLOAD_PRESETS.filter((p) => !usedKinds.has(p.kind)).slice(0, 6);
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Workflows</h1>
-          <p className="text-muted-foreground mt-1">Define what your homelab needs to do.</p>
+          <p className="text-muted-foreground mt-1">
+            Pick a preset to get instant fit + model recommendations, or build one from scratch.
+          </p>
         </div>
-        <Button onClick={add}><Plus className="h-4 w-4 mr-1" /> Add workload</Button>
+        <Button variant="outline" onClick={() => add()}>
+          <Plus className="h-4 w-4 mr-1" /> Blank workload
+        </Button>
       </div>
+
+      {suggestedPresets.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              {cfg.workloads.length === 0 ? "Start with a common workload" : "Add another common workload"}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              One click drops in sensible defaults you can tweak below.
+            </p>
+          </CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {suggestedPresets.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  add(p);
+                  toast.success(`Added "${p.label}"`, { description: p.detail });
+                }}
+                className="text-left rounded-md border p-3 hover:bg-muted/40 hover:border-primary/40 transition-colors"
+              >
+                <div className="flex items-start gap-2">
+                  <p.icon className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{p.label}</div>
+                    <div className="text-xs text-muted-foreground line-clamp-2">{p.detail}</div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
 
       <div className="grid gap-4">
         {cfg.workloads.map((w, i) => {
@@ -122,15 +172,100 @@ function Workflows() {
             </Card>
           );
         })}
-        {cfg.workloads.length === 0 && (
-          <Card><CardContent className="p-10 text-center text-muted-foreground">No workloads defined. Add one to model fit.</CardContent></Card>
-        )}
       </div>
 
       <CustomModelsSection cfg={cfg} onChange={setCfg} />
     </div>
   );
 }
+
+// -------- Preset workloads (one-click starters) --------
+
+interface WorkloadPreset {
+  id: string;
+  kind: Workload["kind"];
+  label: string;
+  detail: string;
+  icon: typeof Sparkles;
+  params: Record<string, number | string | boolean>;
+}
+
+const WORKLOAD_PRESETS: WorkloadPreset[] = [
+  {
+    id: "llm-8b",
+    kind: "llm-inference",
+    label: "Local LLM — Llama 3.1 8B",
+    detail: "~8 GB VRAM, targets 30 tok/s. Good starter chat model.",
+    icon: Sparkles,
+    params: { modelSizeGB: 8, targetTokPerSec: 30 },
+  },
+  {
+    id: "llm-70b",
+    kind: "llm-inference",
+    label: "Local LLM — Llama 3.1 70B (quantized)",
+    detail: "~40 GB VRAM at 4-bit, targets 15 tok/s. Serious inference rig.",
+    icon: Sparkles,
+    params: { modelSizeGB: 40, targetTokPerSec: 15 },
+  },
+  {
+    id: "plex",
+    kind: "plex-transcode",
+    label: "Plex / Jellyfin — 2× 4K transcodes",
+    detail: "Two concurrent 4K HEVC transcodes for family streaming.",
+    icon: Server,
+    params: { streams: 2 },
+  },
+  {
+    id: "vms",
+    kind: "vms",
+    label: "Proxmox — 4 VMs at 8 GB each",
+    detail: "Home services stack (OPNsense, HAOS, dev box, monitoring).",
+    icon: Server,
+    params: { count: 4, ramPerGB: 8 },
+  },
+  {
+    id: "containers",
+    kind: "containers",
+    label: "Docker / K3s — self-hosted apps",
+    detail: "20 containers averaging 512 MB (Nextcloud, *arr stack, Vaultwarden).",
+    icon: Server,
+    params: { count: 20, ramPerGB: 0.5 },
+  },
+  {
+    id: "home-assistant",
+    kind: "home-assistant",
+    label: "Home Assistant + Frigate NVR",
+    detail: "24/7 automations plus 4 cameras with object detection.",
+    icon: Server,
+    params: { cameras: 4 },
+  },
+  {
+    id: "game-server",
+    kind: "game-server",
+    label: "Game server — Minecraft / Valheim",
+    detail: "Small friends-and-family server, 8 GB RAM.",
+    icon: Server,
+    params: { ramPerGB: 8 },
+  },
+  {
+    id: "ci",
+    kind: "ci-runner",
+    label: "GitHub Actions self-hosted runner",
+    detail: "One always-on runner for personal repos and side projects.",
+    icon: Wrench,
+    params: { count: 1, ramPerGB: 4 },
+  },
+  {
+    id: "backup",
+    kind: "backup",
+    label: "Offsite backup — 2 TB",
+    detail: "Restic/Borg to B2 or a second location, nightly.",
+    icon: Cloud,
+    params: { dataTB: 2 },
+  },
+];
+
+
 
 function ParamField({ label, value, onChange }: { label: string; value: number | string | undefined; onChange: (v: number) => void }) {
   return (
