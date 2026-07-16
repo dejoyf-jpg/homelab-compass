@@ -68,6 +68,35 @@ export const WorkloadSchema = z.object({
 });
 export type Workload = z.infer<typeof WorkloadSchema>;
 
+export const CustomModelSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1, "Name required").max(80),
+  vendor: z.string().max(80).default("Custom"),
+  baseUrl: z.string().url("Must be a valid https URL").refine(
+    (u) => /^https?:\/\//.test(u),
+    "Must start with http:// or https://",
+  ),
+  authMethod: z.enum(["none", "bearer", "api-key-header", "query-param"]).default("bearer"),
+  authHeaderName: z.string().max(64).default("Authorization"),
+  authSecretName: z.string().max(64).default(""),
+  modelId: z.string().min(1, "Model id required").max(120),
+  costPer1MInputUSD: z.number().nonnegative().max(1000).default(0),
+  costPer1MOutputUSD: z.number().nonnegative().max(1000).default(0),
+  defaults: z.object({
+    temperature: z.number().min(0).max(2).default(0.7),
+    topP: z.number().min(0).max(1).default(1),
+    maxOutputTokens: z.number().int().positive().max(1_000_000).default(2048),
+    contextTokens: z.number().int().positive().max(10_000_000).default(32_768),
+  }).default({
+    temperature: 0.7,
+    topP: 1,
+    maxOutputTokens: 2048,
+    contextTokens: 32_768,
+  }),
+  notes: z.string().max(400).default(""),
+});
+export type CustomModel = z.infer<typeof CustomModelSchema>;
+
 export const HomelabConfigSchema = z.object({
   labName: z.string().default("My Homelab"),
   location: z.string().default(""),
@@ -88,6 +117,7 @@ export const HomelabConfigSchema = z.object({
     monitoring: false,
   }),
   workloads: z.array(WorkloadSchema).default([]),
+  customModels: z.array(CustomModelSchema).default([]),
   notes: z.string().default(""),
 });
 export type HomelabConfig = z.infer<typeof HomelabConfigSchema>;
