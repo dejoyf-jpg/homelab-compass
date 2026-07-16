@@ -146,7 +146,7 @@ function Simulate() {
                       key={i}
                       cfg={simulatedCfg}
                       rec={r}
-                      onAdd={() => setDeltas([...deltas, r.delta])}
+                      onAdd={() => applyRecommendation(r)}
                     />
                   ))}
                 </div>
