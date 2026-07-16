@@ -118,7 +118,14 @@ function projectedGain(cfg: HomelabConfig, delta: Delta): number {
   return after - base;
 }
 
+function projectedMonthlyCostDelta(cfg: HomelabConfig, delta: Delta): number {
+  const base = evaluate(cfg).power.monthlyCostUSD;
+  const after = evaluate(applyDeltas(cfg, [delta])).power.monthlyCostUSD;
+  return Math.round((after - base) * 100) / 100;
+}
+
 export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
+
   if (cfg.nodes.length === 0) return [];
   const evalNow = evaluate(cfg);
   const dimBy = Object.fromEntries(evalNow.dimensions.map((d) => [d.key, d.score]));
