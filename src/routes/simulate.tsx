@@ -53,14 +53,28 @@ function Simulate() {
     [simulatedCfg, hydrated],
   );
   const [weights, setWeights] = useState<PriorityWeights>(DEFAULT_WEIGHTS);
+  const [constraints, setConstraints] = useState<Constraints>(DEFAULT_CONSTRAINTS);
   const rawRecommendations = useMemo(
     () => (hydrated ? recommendDeltas(simulatedCfg) : []),
     [simulatedCfg, hydrated],
   );
-  const recommendations = useMemo(
-    () => rankRecommendations(rawRecommendations, weights),
+  const rankedRecommendations = useMemo(
+    () => rankRecommendations(rawRecommendations, weights, 20),
     [rawRecommendations, weights],
   );
+  const recommendations = useMemo(
+    () => applyConstraints(simulatedCfg, rankedRecommendations, constraints)
+      .filter((r) => r.feasible)
+      .slice(0, 6),
+    [simulatedCfg, rankedRecommendations, constraints],
+  );
+  const blockedRecommendations = useMemo(
+    () => applyConstraints(simulatedCfg, rankedRecommendations, constraints)
+      .filter((r) => !r.feasible)
+      .slice(0, 4),
+    [simulatedCfg, rankedRecommendations, constraints],
+  );
+
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
