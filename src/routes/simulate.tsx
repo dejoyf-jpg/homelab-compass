@@ -9,8 +9,18 @@ import {
 } from "@/components/ui/select";
 import { useConfig } from "@/lib/storage";
 import { evaluate } from "@/lib/engine/score";
-import { applyDeltas, recommendDeltas, type Delta } from "@/lib/engine/simulate";
-import { X, Plus, Sparkles } from "lucide-react";
+import {
+  applyDeltas,
+  recommendDeltas,
+  rankRecommendations,
+  DEFAULT_WEIGHTS,
+  type Delta,
+  type PriorityWeights,
+  type RecCategory,
+} from "@/lib/engine/simulate";
+import { Toggle } from "@/components/ui/toggle";
+import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/simulate")({
@@ -33,11 +43,15 @@ function Simulate() {
     () => (hydrated ? evaluate(simulatedCfg) : null),
     [simulatedCfg, hydrated],
   );
-  const recommendations = useMemo(
+  const [weights, setWeights] = useState<PriorityWeights>(DEFAULT_WEIGHTS);
+  const rawRecommendations = useMemo(
     () => (hydrated ? recommendDeltas(simulatedCfg) : []),
     [simulatedCfg, hydrated],
   );
-
+  const recommendations = useMemo(
+    () => rankRecommendations(rawRecommendations, weights),
+    [rawRecommendations, weights],
+  );
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
@@ -48,12 +62,17 @@ function Simulate() {
       </div>
     );
 
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Simulate upgrades</h1>
         <p className="text-muted-foreground mt-1">Stack changes and see side-by-side scoring.</p>
       </div>
+
+      <PriorityFilters weights={weights} onChange={setWeights} />
+
+
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <Card>
@@ -152,9 +171,27 @@ function Simulate() {
                 key={i}
                 className="flex items-start justify-between gap-3 text-sm border rounded-md p-3"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 space-y-1">
                   <div className="font-medium">{r.label}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{r.reason}</div>
+                  <div className="text-xs text-muted-foreground">{r.reason}</div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                    {r.categories.map((c) => (
+                      <span key={c} className="rounded bg-muted px-1.5 py-0.5 capitalize">
+                        {c}
+                      </span>
+                    ))}
+                    {r.monthlyCostDeltaUSD !== 0 && (
+                      <span
+                        className={`rounded px-1.5 py-0.5 tabular-nums ${
+                          r.monthlyCostDeltaUSD > 0
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        }`}
+                      >
+                        {r.monthlyCostDeltaUSD > 0 ? "+" : ""}${r.monthlyCostDeltaUSD}/mo
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {r.gain > 0 && (
@@ -168,6 +205,7 @@ function Simulate() {
                 </div>
               </div>
             ))
+
           )}
         </CardContent>
       </Card>
@@ -196,6 +234,57 @@ function Simulate() {
     </div>
   );
 }
+
+const PRIORITY_OPTIONS: { key: RecCategory; label: string; icon: typeof Zap; hint: string }[] = [
+  { key: "performance", label: "Performance", icon: Zap, hint: "CPU, RAM, GPU, storage speed" },
+  { key: "reliability", label: "Reliability", icon: ShieldCheck, hint: "UPS, offsite backup, HA" },
+  { key: "network", label: "Network", icon: Network, hint: "LAN/WAN, managed switch, VLANs" },
+  { key: "cost", label: "Low running cost", icon: DollarSign, hint: "Penalize $/mo power increases" },
+];
+
+function PriorityFilters({
+  weights,
+  onChange,
+}: {
+  weights: PriorityWeights;
+  onChange: (w: PriorityWeights) => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="py-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mr-2">
+          Prioritize
+        </span>
+        {PRIORITY_OPTIONS.map(({ key, label, icon: Icon, hint }) => {
+          const on = (weights[key] ?? 0) > 0;
+          return (
+            <Toggle
+              key={key}
+              pressed={on}
+              onPressedChange={(v) => onChange({ ...weights, [key]: v ? 1 : 0 })}
+              variant="outline"
+              size="sm"
+              title={hint}
+              className="gap-1.5"
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </Toggle>
+          );
+        })}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto text-xs"
+          onClick={() => onChange(DEFAULT_WEIGHTS)}
+        >
+          Reset
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function Delta({ n }: { n: number }) {
   if (n === 0) return null;

@@ -63,12 +63,39 @@ export interface Scenario {
   deltas: Delta[];
 }
 
+export type RecCategory = "performance" | "reliability" | "cost" | "network";
+
 export interface Recommendation {
   delta: Delta;
   label: string;
   reason: string;
   gain: number; // projected overall-score gain
+  categories: RecCategory[];
+  monthlyCostDeltaUSD: number; // added running cost (power) per month
+  score: number; // priority-weighted ranking score
 }
+
+export type PriorityWeights = Partial<Record<RecCategory, number>>;
+
+export const DEFAULT_WEIGHTS: Required<PriorityWeights> = {
+  performance: 1,
+  reliability: 1,
+  cost: 0,
+  network: 1,
+};
+
+const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
+  "add-ups": ["reliability"],
+  "add-offsite": ["reliability"],
+  "add-managed-switch": ["reliability", "network"],
+  "upgrade-lan": ["performance", "network"],
+  "upgrade-wan": ["performance", "network"],
+  "add-ram": ["performance"],
+  "add-nvme": ["performance"],
+  "add-gpu": ["performance"],
+  "add-node": ["performance", "reliability"],
+};
+
 
 function pickWeakestNode(cfg: HomelabConfig, key: "ram" | "storage" | "gpu"): Node | null {
   if (cfg.nodes.length === 0) return null;
@@ -91,7 +118,14 @@ function projectedGain(cfg: HomelabConfig, delta: Delta): number {
   return after - base;
 }
 
+function projectedMonthlyCostDelta(cfg: HomelabConfig, delta: Delta): number {
+  const base = evaluate(cfg).power.monthlyCostUSD;
+  const after = evaluate(applyDeltas(cfg, [delta])).power.monthlyCostUSD;
+  return Math.round((after - base) * 100) / 100;
+}
+
 export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
+
   if (cfg.nodes.length === 0) return [];
   const evalNow = evaluate(cfg);
   const dimBy = Object.fromEntries(evalNow.dimensions.map((d) => [d.key, d.score]));
@@ -191,14 +225,53 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
     }
   };
 
-  return candidates
-    .map((delta) => ({
+  return candidates.map((delta) => {
+    const gain = projectedGain(cfg, delta);
+    const monthlyCostDeltaUSD = projectedMonthlyCostDelta(cfg, delta);
+    return {
       delta,
       label: labelFor(delta),
       reason: reasons[delta.kind],
-      gain: projectedGain(cfg, delta),
-    }))
-    .sort((a, b) => b.gain - a.gain)
-    .slice(0, 6);
+      gain,
+      monthlyCostDeltaUSD,
+      categories: CATEGORY_BY_KIND[delta.kind],
+      score: gain, // filled in by rankRecommendations
+    };
+  });
 }
+
+/**
+ * Re-rank + filter recommendations for the user's priorities.
+ * - Any category with weight 0 is treated as a hard filter (dropped unless another selected category matches).
+ * - `cost` weight penalizes items that add monthly power cost, and rewards those that reduce it.
+ */
+export function rankRecommendations(
+  recs: Recommendation[],
+  weights: PriorityWeights,
+  limit = 6,
+): Recommendation[] {
+  const w = { ...DEFAULT_WEIGHTS, ...weights };
+  const anySelected =
+    (w.performance > 0 || w.reliability > 0 || w.network > 0);
+
+  const scored = recs
+    .filter((r) => {
+      if (!anySelected) return true;
+      return r.categories.some((c) => c !== "cost" && (w[c] ?? 0) > 0);
+    })
+    .map((r) => {
+      const catBoost = r.categories.reduce(
+        (a, c) => a + (c === "cost" ? 0 : (w[c] ?? 0)),
+        0,
+      );
+      // cost weight: 1 => strong penalty per $/mo added; negative delta boosts score
+      const costPenalty = (w.cost ?? 0) * r.monthlyCostDeltaUSD * 2;
+      const score = r.gain * (1 + 0.35 * catBoost) - costPenalty;
+      return { ...r, score: Math.round(score * 10) / 10 };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, limit);
+}
+
 
