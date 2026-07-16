@@ -205,7 +205,7 @@ export function recommendModelsForWorkload(
   const tokIn = opts.avgTokensIn ?? 800;
   const tokOut = opts.avgTokensOut ?? 400;
 
-  return MODEL_CATALOG.map((m): ModelRecommendation => {
+  const catalogRecs = MODEL_CATALOG.map((m): ModelRecommendation => {
     if (m.hosting === "local") {
       if (!gpu || gpu.gpu.tier === "none") {
         return { model: m, fit: "insufficient", detail: "No local GPU available." };
@@ -238,6 +238,41 @@ export function recommendModelsForWorkload(
       detail: `~$${cost.toFixed(2)}/mo at ${reqPerMonth} req · ${tokIn} in / ${tokOut} out tok.`,
     };
   });
+
+  const customRecs: ModelRecommendation[] = (cfg.customModels ?? []).map((cm) =>
+    customModelToRecommendation(cm, { reqPerMonth, tokIn, tokOut }),
+  );
+
+  return [...customRecs, ...catalogRecs];
+}
+
+export function customModelToRecommendation(
+  cm: CustomModel,
+  opts: { reqPerMonth: number; tokIn: number; tokOut: number },
+): ModelRecommendation {
+  const cost =
+    (cm.costPer1MInputUSD * opts.tokIn + cm.costPer1MOutputUSD * opts.tokOut) *
+    (opts.reqPerMonth / 1_000_000);
+  return {
+    model: {
+      id: `custom:${cm.id}`,
+      name: cm.name,
+      vendor: cm.vendor || "Custom",
+      hosting: "custom",
+      endpoint: cm.baseUrl,
+      costPer1MInputUSD: cm.costPer1MInputUSD,
+      costPer1MOutputUSD: cm.costPer1MOutputUSD,
+      strengths: [
+        `Model: ${cm.modelId}`,
+        `Auth: ${cm.authMethod}${cm.authSecretName ? ` (env: ${cm.authSecretName})` : ""}`,
+        ...(cm.notes ? [cm.notes] : []),
+      ],
+      defaults: cm.defaults,
+    },
+    fit: "hosted",
+    estimatedMonthlyCostUSD: Math.round(cost * 100) / 100,
+    detail: `Custom endpoint · ~$${cost.toFixed(2)}/mo at ${opts.reqPerMonth} req.`,
+  };
 }
 
 /**
