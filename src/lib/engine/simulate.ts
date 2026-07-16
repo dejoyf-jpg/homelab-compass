@@ -439,6 +439,7 @@ export function applyConstraints(
     upfrontUSD: 0,
     addedNodes: 0,
     monthlyCostAfterUSD: evaluate(cfg).power.monthlyCostUSD,
+    cloudGpuMonthlyUSD: 0,
   };
   return recs.map((r) => {
     const nextMonthly =
@@ -450,6 +451,7 @@ export function applyConstraints(
         upfrontUSD: cumulative.upfrontUSD,
         addedNodes: cumulative.addedNodes,
         monthlyCostAfterUSD: nextMonthly,
+        cloudGpuMonthlyUSD: cumulative.cloudGpuMonthlyUSD,
       },
       constraints,
     );
@@ -457,6 +459,9 @@ export function applyConstraints(
       cumulative.upfrontUSD += r.upfrontCostUSD;
       cumulative.addedNodes += r.addedNodes;
       cumulative.monthlyCostAfterUSD = nextMonthly;
+      if (r.delta.kind === "add-cloud-gpu") {
+        cumulative.cloudGpuMonthlyUSD += r.delta.monthlyUSD;
+      }
     }
     return { ...r, feasible: reasons.length === 0, blockedReasons: reasons };
   });
