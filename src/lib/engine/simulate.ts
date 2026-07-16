@@ -4,6 +4,22 @@ import { evaluate } from "./score";
 export type Delta =
   | { kind: "add-ram"; nodeId: string; gb: number }
   | { kind: "add-gpu"; nodeId: string; tier: Node["gpu"]["tier"]; vramGB: number; model: string }
+  | {
+      kind: "add-egpu";
+      nodeId: string;
+      tier: Node["gpu"]["tier"];
+      vramGB: number;
+      model: string;
+      interconnect: "thunderbolt" | "oculink" | "usb4";
+    }
+  | {
+      kind: "add-cloud-gpu";
+      provider: string; // e.g. "RunPod", "Lambda", "Vast.ai"
+      tier: Node["gpu"]["tier"];
+      vramGB: number;
+      model: string; // e.g. "A100 80GB", "L40S"
+      monthlyUSD: number; // expected monthly spend at your duty cycle
+    }
   | { kind: "add-nvme"; nodeId: string; sizeGB: number }
   | { kind: "upgrade-lan"; gbps: number }
   | { kind: "upgrade-wan"; downMbps: number; upMbps: number }
@@ -25,6 +41,36 @@ export function applyDeltas(cfg: HomelabConfig, deltas: Delta[]): HomelabConfig 
       case "add-gpu": {
         const n = next.nodes.find((x) => x.id === d.nodeId);
         if (n) n.gpu = { tier: d.tier, vramGB: d.vramGB, model: d.model };
+        break;
+      }
+      case "add-egpu": {
+        const n = next.nodes.find((x) => x.id === d.nodeId);
+        if (n) {
+          n.gpu = { tier: d.tier, vramGB: d.vramGB, model: `${d.model} (eGPU ${d.interconnect})` };
+          // enclosure + interconnect overhead
+          n.loadWatts += 35;
+          n.idleWatts += 8;
+          if (n.nicGbps < 1) n.nicGbps = 1;
+        }
+        break;
+      }
+      case "add-cloud-gpu": {
+        // Virtual node representing a rented cloud GPU — no local power draw.
+        next.nodes.push({
+          id: `cloud-${d.provider.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
+          name: `Cloud GPU: ${d.provider} ${d.model}`,
+          role: "cloud-gpu",
+          cpuModel: `${d.provider} host`,
+          cpuCores: 8,
+          cpuTier: "server",
+          ramGB: 64,
+          ecc: true,
+          gpu: { model: d.model, vramGB: d.vramGB, tier: d.tier },
+          storage: [{ kind: "nvme", sizeGB: 500, count: 1 }],
+          nicGbps: 10,
+          idleWatts: 0,
+          loadWatts: 0,
+        });
         break;
       }
       case "add-nvme": {
@@ -126,7 +172,10 @@ const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
   "add-ram": ["performance"],
   "add-nvme": ["performance", "space"],
   "add-gpu": ["performance", "power", "noise"],
+  "add-egpu": ["performance", "power", "noise", "space"],
+  "add-cloud-gpu": ["performance", "cost"],
   "add-node": ["performance", "reliability", "power", "noise", "space"],
+
 };
 
 const GPU_TIER_COST: Record<Node["gpu"]["tier"], number> = {
@@ -139,6 +188,9 @@ export function estimateUpfrontCost(delta: Delta): number {
     case "add-ram": return Math.round(delta.gb * 4);
     case "add-nvme": return Math.round(delta.sizeGB * 0.08);
     case "add-gpu": return GPU_TIER_COST[delta.tier] ?? 500;
+    case "add-egpu": return (GPU_TIER_COST[delta.tier] ?? 500) + 250; // GPU + enclosure
+    case "add-cloud-gpu": return 0; // pay-as-you-go, no upfront hardware
+
     case "upgrade-lan": return delta.gbps >= 10 ? 350 : delta.gbps >= 2.5 ? 120 : 60;
     case "upgrade-wan": return 0; // ISP plan change, not hardware
     case "add-ups": return 220;
@@ -308,7 +360,10 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
     "add-ram": "Raises VM/container density and cache headroom.",
     "add-nvme": "Cuts VM/database latency dramatically vs spinning rust.",
     "add-gpu": "Enables local LLM inference and hardware transcoding.",
+    "add-egpu": "Adds GPU horsepower to an SFF/laptop node via Thunderbolt/OCuLink without opening the case.",
+    "add-cloud-gpu": "Bursts LLM/render workloads to a rented cloud GPU — no local power, noise, or upfront cost.",
     "add-node": "Adds a second host for HA, quorum, and spare capacity.",
+
   };
 
   const labelFor = (d: Delta): string => {
@@ -316,6 +371,9 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
     switch (d.kind) {
       case "add-ram": return `+${d.gb}GB RAM on ${node(d.nodeId)}`;
       case "add-gpu": return `Add ${d.tier} GPU (${d.vramGB}GB) to ${node(d.nodeId)}`;
+      case "add-egpu": return `Add eGPU ${d.model} (${d.vramGB}GB, ${d.interconnect}) to ${node(d.nodeId)}`;
+      case "add-cloud-gpu": return `Cloud GPU: ${d.provider} ${d.model} (~$${d.monthlyUSD}/mo)`;
+
       case "add-nvme": return `+${d.sizeGB}GB NVMe on ${node(d.nodeId)}`;
       case "upgrade-lan": return `Upgrade LAN to ${d.gbps}GbE`;
       case "upgrade-wan": return `WAN → ${d.downMbps}/${d.upMbps} Mbps`;

@@ -695,6 +695,36 @@ function shoppingForDelta(d: Delta): ShoppingItem[] {
           ],
         },
       ];
+    case "add-egpu":
+      return [
+        {
+          what: `eGPU enclosure (${d.interconnect}) + ${d.model}`,
+          sizing: `Assumes host has ${
+            d.interconnect === "thunderbolt" ? "TB3/TB4/TB5" : d.interconnect === "oculink" ? "OCuLink or M.2→OCuLink adapter" : "USB4"
+          }; expect ~10–20% GPU throughput loss vs. internal PCIe x16.`,
+          links: [
+            { name: `${d.interconnect} eGPU enclosure (Amazon)`, url: amazon(`${d.interconnect} eGPU enclosure`) },
+            { name: `${d.model} card (Amazon)`, url: amazon(`${d.model} graphics card`) },
+            { name: "Newegg eGPU", url: newegg(`eGPU enclosure ${d.interconnect}`) },
+            { name: "egpu.io guide", url: "https://egpu.io/" },
+          ],
+        },
+      ];
+    case "add-cloud-gpu":
+      return [
+        {
+          what: `${d.provider} ${d.model} (~${d.vramGB} GB VRAM) — pay-as-you-go`,
+          sizing: `Budgeted at ~$${d.monthlyUSD}/mo; assumes bursty use — switch off between jobs. No local power, noise, or upfront cost.`,
+          links: [
+            { name: "RunPod GPU pricing", url: "https://www.runpod.io/pricing" },
+            { name: "Vast.ai marketplace", url: "https://cloud.vast.ai/create/" },
+            { name: "Lambda On-Demand", url: "https://lambdalabs.com/service/gpu-cloud" },
+            { name: "Modal", url: "https://modal.com/pricing" },
+            { name: "Hyperstack", url: "https://www.hyperstack.cloud/gpu-pricing" },
+          ],
+        },
+      ];
+
     case "add-nvme":
       return [
         {
@@ -1403,6 +1433,9 @@ function describeDelta(d: Delta, cfg: { nodes: { id: string; name: string }[] })
   switch (d.kind) {
     case "add-ram": return `+${d.gb}GB RAM on ${nodeName(d.nodeId)}`;
     case "add-gpu": return `Add GPU (${d.tier}, ${d.vramGB}GB) to ${nodeName(d.nodeId)}`;
+    case "add-egpu": return `Add eGPU ${d.model} (${d.vramGB}GB, ${d.interconnect}) to ${nodeName(d.nodeId)}`;
+    case "add-cloud-gpu": return `Cloud GPU: ${d.provider} ${d.model} (~$${d.monthlyUSD}/mo)`;
+
     case "add-nvme": return `+${d.sizeGB}GB NVMe on ${nodeName(d.nodeId)}`;
     case "upgrade-lan": return `Upgrade LAN to ${d.gbps}GbE`;
     case "upgrade-wan": return `WAN → ${d.downMbps}/${d.upMbps} Mbps`;
@@ -1430,6 +1463,26 @@ function AddDeltaForm({
     switch (kind) {
       case "add-ram": d = { kind, nodeId, gb: Number(n1) || 0 }; break;
       case "add-gpu": d = { kind, nodeId, tier: "mid", vramGB: Number(n1) || 12, model: "RTX 4070-class" }; break;
+      case "add-egpu":
+        d = {
+          kind,
+          nodeId,
+          tier: "mid",
+          vramGB: Number(n1) || 12,
+          model: "RTX 4070-class",
+          interconnect: "oculink",
+        };
+        break;
+      case "add-cloud-gpu":
+        d = {
+          kind,
+          provider: "RunPod",
+          tier: "datacenter",
+          vramGB: Number(n1) || 48,
+          model: "L40S",
+          monthlyUSD: Number(n2) || 120,
+        };
+        break;
       case "add-nvme": d = { kind, nodeId, sizeGB: Number(n1) || 1000 }; break;
       case "upgrade-lan": d = { kind, gbps: Number(n1) || 10 }; break;
       case "upgrade-wan": d = { kind, downMbps: Number(n1) || 1000, upMbps: Number(n2) || 100 }; break;
@@ -1444,13 +1497,21 @@ function AddDeltaForm({
           nicGbps: 2.5, idleWatts: 8, loadWatts: 25,
         } };
         break;
+      default: return;
     }
     onAdd(d);
   };
 
-  const needsNode = ["add-ram", "add-gpu", "add-nvme"].includes(kind);
-  const needsN1 = ["add-ram", "add-gpu", "add-nvme", "upgrade-lan", "upgrade-wan"].includes(kind);
-  const needsN2 = kind === "upgrade-wan";
+  const needsNode = ["add-ram", "add-gpu", "add-egpu", "add-nvme"].includes(kind);
+  const needsN1 = ["add-ram", "add-gpu", "add-egpu", "add-cloud-gpu", "add-nvme", "upgrade-lan", "upgrade-wan"].includes(kind);
+  const needsN2 = kind === "upgrade-wan" || kind === "add-cloud-gpu";
+
+  const n1Label =
+    kind === "upgrade-lan" ? "Gbps"
+    : kind === "upgrade-wan" ? "Down Mbps"
+    : kind === "add-gpu" || kind === "add-egpu" || kind === "add-cloud-gpu" ? "VRAM GB"
+    : "GB";
+  const n2Label = kind === "add-cloud-gpu" ? "$ / month" : "Up Mbps";
 
   return (
     <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto_auto] items-end">
@@ -1461,6 +1522,8 @@ function AddDeltaForm({
           <SelectContent>
             <SelectItem value="add-ram">Add RAM</SelectItem>
             <SelectItem value="add-gpu">Add / swap GPU</SelectItem>
+            <SelectItem value="add-egpu">Add external GPU (TB/OCuLink)</SelectItem>
+            <SelectItem value="add-cloud-gpu">Add cloud GPU</SelectItem>
             <SelectItem value="add-nvme">Add NVMe</SelectItem>
             <SelectItem value="upgrade-lan">Upgrade LAN</SelectItem>
             <SelectItem value="upgrade-wan">Upgrade WAN</SelectItem>
@@ -1484,13 +1547,13 @@ function AddDeltaForm({
       ) : <div />}
       {needsN1 ? (
         <div>
-          <Label className="text-xs">{kind === "upgrade-lan" ? "Gbps" : kind === "upgrade-wan" ? "Down Mbps" : kind === "add-gpu" ? "VRAM GB" : "GB"}</Label>
+          <Label className="text-xs">{n1Label}</Label>
           <input className="border rounded-md px-2 py-1.5 text-sm w-24" value={n1} onChange={(e) => setN1(e.target.value)} />
         </div>
       ) : <div />}
       {needsN2 ? (
         <div>
-          <Label className="text-xs">Up Mbps</Label>
+          <Label className="text-xs">{n2Label}</Label>
           <input className="border rounded-md px-2 py-1.5 text-sm w-24" value={n2} onChange={(e) => setN2(e.target.value)} />
         </div>
       ) : <div />}
@@ -1498,3 +1561,4 @@ function AddDeltaForm({
     </div>
   );
 }
+
