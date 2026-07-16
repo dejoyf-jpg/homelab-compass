@@ -171,9 +171,27 @@ function Simulate() {
                 key={i}
                 className="flex items-start justify-between gap-3 text-sm border rounded-md p-3"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 space-y-1">
                   <div className="font-medium">{r.label}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{r.reason}</div>
+                  <div className="text-xs text-muted-foreground">{r.reason}</div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                    {r.categories.map((c) => (
+                      <span key={c} className="rounded bg-muted px-1.5 py-0.5 capitalize">
+                        {c}
+                      </span>
+                    ))}
+                    {r.monthlyCostDeltaUSD !== 0 && (
+                      <span
+                        className={`rounded px-1.5 py-0.5 tabular-nums ${
+                          r.monthlyCostDeltaUSD > 0
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        }`}
+                      >
+                        {r.monthlyCostDeltaUSD > 0 ? "+" : ""}${r.monthlyCostDeltaUSD}/mo
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {r.gain > 0 && (
@@ -187,6 +205,7 @@ function Simulate() {
                 </div>
               </div>
             ))
+
           )}
         </CardContent>
       </Card>
