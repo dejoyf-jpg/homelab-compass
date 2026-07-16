@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { Component, useMemo, type ErrorInfo, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useConfig } from "@/lib/storage";
 import { evaluate } from "@/lib/engine/score";
-import { recommendModelsForWorkload, type ModelRecommendation } from "@/lib/engine/models-catalog";
-import { Plus, Trash2, Cloud, Server, Sparkles } from "lucide-react";
+import {
+  recommendModelsForWorkloadSafe,
+  type ModelRecommendation,
+} from "@/lib/engine/models-catalog";
+import { AlertTriangle, Plus, Trash2, Cloud, Server, Sparkles } from "lucide-react";
 import type { HomelabConfig, Workload } from "@/lib/engine/types";
 
 
@@ -108,7 +111,9 @@ function Workflows() {
                   <p className="text-sm text-muted-foreground">{fit.detail}</p>
                 )}
                 {w.kind === "llm-inference" && (
-                  <ModelRecommendations cfg={cfg} workload={w} />
+                  <RecommendationsErrorBoundary>
+                    <ModelRecommendations cfg={cfg} workload={w} />
+                  </RecommendationsErrorBoundary>
                 )}
               </CardContent>
 
@@ -160,7 +165,7 @@ function ParamFields({ workload, onChange }: { workload: Workload; onChange: (w:
 }
 
 function ModelRecommendations({ cfg, workload }: { cfg: HomelabConfig; workload: Workload }) {
-  const recs = useMemo(() => recommendModelsForWorkload(cfg, workload), [cfg, workload]);
+  const recs = useMemo(() => recommendModelsForWorkloadSafe(cfg, workload), [cfg, workload]);
   const local = recs.filter((r) => r.model.hosting === "local");
   const hosted = recs.filter((r) => r.model.hosting === "hosted");
 
@@ -238,4 +243,32 @@ function ParamPill({ k, v }: { k: string; v: string | number }) {
     </span>
   );
 }
+
+class RecommendationsErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn("[workflows] ModelRecommendations crashed", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground flex items-start gap-2 bg-muted/20">
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 shrink-0" />
+          <span>
+            Couldn't render model recommendations for this workload — the response was malformed.
+            Adjust the workload parameters or try again.
+          </span>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 

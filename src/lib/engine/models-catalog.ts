@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { HomelabConfig, Node, Workload } from "./types";
 import { estimateLlmTokensPerSec } from "./score";
 
@@ -121,12 +122,66 @@ export const MODEL_CATALOG: ModelSpec[] = [
   },
 ];
 
-export interface ModelRecommendation {
-  model: ModelSpec;
-  fit: "ok" | "tight" | "insufficient" | "hosted";
-  detail: string;
-  estimatedTokPerSec?: number;
-  estimatedMonthlyCostUSD?: number;
+// ─── Schemas (runtime validation for recommendations) ──────────────
+// These guard against malformed data coming from anywhere — future AI-generated
+// recommendations, cached results, or a bad refactor. Anything failing the schema
+// is dropped rather than propagated into the UI.
+
+const ModelParamDefaultsSchema = z.object({
+  temperature: z.number().finite().min(0).max(2),
+  topP: z.number().finite().min(0).max(1),
+  maxOutputTokens: z.number().int().positive(),
+  contextTokens: z.number().int().positive(),
+});
+
+export const ModelSpecSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  vendor: z.string().min(1),
+  hosting: z.enum(["local", "hosted"]),
+  weightsGB: z.number().positive().optional(),
+  minVramGB: z.number().positive().optional(),
+  endpoint: z.string().url().optional(),
+  costPer1MInputUSD: z.number().nonnegative().optional(),
+  costPer1MOutputUSD: z.number().nonnegative().optional(),
+  strengths: z.array(z.string()).default([]),
+  defaults: ModelParamDefaultsSchema,
+});
+
+export const ModelRecommendationSchema = z.object({
+  model: ModelSpecSchema,
+  fit: z.enum(["ok", "tight", "insufficient", "hosted"]),
+  detail: z.string(),
+  estimatedTokPerSec: z.number().nonnegative().optional(),
+  estimatedMonthlyCostUSD: z.number().nonnegative().optional(),
+});
+
+export type ModelRecommendation = z.infer<typeof ModelRecommendationSchema>;
+
+/**
+ * Validate an unknown value (or array) into a clean list of recommendations.
+ * Accepts a JSON string, an array, or a single object. Invalid entries are
+ * dropped with a console warning; never throws.
+ */
+export function safeParseModelRecommendations(input: unknown): ModelRecommendation[] {
+  let value: unknown = input;
+  if (typeof value === "string") {
+    const trimmed = value.trim().replace(/^```json\s*|```$/gi, "").trim();
+    try {
+      value = JSON.parse(trimmed);
+    } catch (err) {
+      console.warn("[models-catalog] recommendations JSON parse failed", err);
+      return [];
+    }
+  }
+  const list = Array.isArray(value) ? value : value ? [value] : [];
+  const out: ModelRecommendation[] = [];
+  for (const item of list) {
+    const parsed = ModelRecommendationSchema.safeParse(item);
+    if (parsed.success) out.push(parsed.data);
+    else console.warn("[models-catalog] dropped malformed recommendation", parsed.error.issues);
+  }
+  return out;
 }
 
 function bestGpuNode(cfg: HomelabConfig): Node | null {
@@ -183,4 +238,22 @@ export function recommendModelsForWorkload(
       detail: `~$${cost.toFixed(2)}/mo at ${reqPerMonth} req · ${tokIn} in / ${tokOut} out tok.`,
     };
   });
+}
+
+/**
+ * Guarded variant: always returns an array. Any exception thrown while building
+ * recommendations, and any individual entry that doesn't match the schema, is
+ * dropped so the caller can render safely.
+ */
+export function recommendModelsForWorkloadSafe(
+  cfg: HomelabConfig,
+  w: Workload,
+  opts: { monthlyRequests?: number; avgTokensIn?: number; avgTokensOut?: number } = {},
+): ModelRecommendation[] {
+  try {
+    return safeParseModelRecommendations(recommendModelsForWorkload(cfg, w, opts));
+  } catch (err) {
+    console.warn("[models-catalog] recommendModelsForWorkload threw", err);
+    return [];
+  }
 }
