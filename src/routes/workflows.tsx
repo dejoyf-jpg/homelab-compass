@@ -124,6 +124,8 @@ function Workflows() {
           <Card><CardContent className="p-10 text-center text-muted-foreground">No workloads defined. Add one to model fit.</CardContent></Card>
         )}
       </div>
+
+      <CustomModelsSection cfg={cfg} onChange={setCfg} />
     </div>
   );
 }
