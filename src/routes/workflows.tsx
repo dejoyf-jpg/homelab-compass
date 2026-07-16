@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { Component, useMemo, type ErrorInfo, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useConfig } from "@/lib/storage";
 import { evaluate } from "@/lib/engine/score";
-import { recommendModelsForWorkload, type ModelRecommendation } from "@/lib/engine/models-catalog";
-import { Plus, Trash2, Cloud, Server, Sparkles } from "lucide-react";
+import {
+  recommendModelsForWorkloadSafe,
+  type ModelRecommendation,
+} from "@/lib/engine/models-catalog";
+import { AlertTriangle, Plus, Trash2, Cloud, Server, Sparkles } from "lucide-react";
 import type { HomelabConfig, Workload } from "@/lib/engine/types";
 
 
