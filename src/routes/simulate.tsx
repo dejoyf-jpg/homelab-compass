@@ -15,6 +15,7 @@ import {
   applyConstraints,
   recommendDeltas,
   rankRecommendations,
+  cloudGpuMonthlySpendUSD,
   DEFAULT_WEIGHTS,
   DEFAULT_CONSTRAINTS,
   type Delta,
