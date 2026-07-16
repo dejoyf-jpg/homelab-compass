@@ -220,7 +220,7 @@ function metaFor(cfg: HomelabConfig, delta: Delta) {
 function checkConstraints(
   cfg: HomelabConfig,
   delta: Delta,
-  cumulative: { upfrontUSD: number; addedNodes: number; monthlyCostAfterUSD: number },
+  cumulative: { upfrontUSD: number; addedNodes: number; monthlyCostAfterUSD: number; cloudGpuMonthlyUSD: number },
   c: Constraints,
 ): string[] {
   const reasons: string[] = [];
@@ -238,6 +238,15 @@ function checkConstraints(
   ) {
     reasons.push(
       `Would push monthly power to $${cumulative.monthlyCostAfterUSD} (cap $${c.maxMonthlyPowerCostUSD}).`,
+    );
+  }
+  if (
+    c.maxCloudGpuMonthlyUSD != null &&
+    delta.kind === "add-cloud-gpu" &&
+    cumulative.cloudGpuMonthlyUSD + delta.monthlyUSD > c.maxCloudGpuMonthlyUSD
+  ) {
+    reasons.push(
+      `Cloud GPU spend would hit $${cumulative.cloudGpuMonthlyUSD + delta.monthlyUSD}/mo (cap $${c.maxCloudGpuMonthlyUSD}).`,
     );
   }
   if (c.maxAddedNodes != null && cumulative.addedNodes + meta.addedNodes > c.maxAddedNodes) {
