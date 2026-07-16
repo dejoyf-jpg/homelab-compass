@@ -58,7 +58,7 @@ Rules:
 
 export const parseIntake = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z.object({ description: z.string().min(4).max(8000) }).parse(input),
+    z.object({ description: z.string().min(4).max(50000) }).parse(input),
   )
   .handler(async ({ data }) => {
     const raw = await chatCompletion({
