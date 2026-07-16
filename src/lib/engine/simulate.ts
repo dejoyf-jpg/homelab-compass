@@ -63,7 +63,17 @@ export interface Scenario {
   deltas: Delta[];
 }
 
-export type RecCategory = "performance" | "reliability" | "cost" | "network";
+export type RecCategory =
+  | "performance"
+  | "reliability"
+  | "network"
+  | "cost"
+  | "power"
+  | "noise"
+  | "space";
+
+export const POSITIVE_CATEGORIES: RecCategory[] = ["performance", "reliability", "network"];
+export const NEGATIVE_CATEGORIES: RecCategory[] = ["cost", "power", "noise", "space"];
 
 export interface Recommendation {
   delta: Delta;
@@ -83,11 +93,15 @@ export interface Recommendation {
 
 export type PriorityWeights = Partial<Record<RecCategory, number>>;
 
+/** Weights are 0..3 (Off / Low / Medium / High). */
 export const DEFAULT_WEIGHTS: Required<PriorityWeights> = {
-  performance: 1,
-  reliability: 1,
-  cost: 0,
-  network: 1,
+  performance: 2,
+  reliability: 2,
+  network: 2,
+  cost: 1,
+  power: 1,
+  noise: 1,
+  space: 1,
 };
 
 export interface Constraints {
@@ -104,15 +118,15 @@ export const DEFAULT_CONSTRAINTS: Constraints = {
 };
 
 const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
-  "add-ups": ["reliability"],
-  "add-offsite": ["reliability"],
-  "add-managed-switch": ["reliability", "network"],
-  "upgrade-lan": ["performance", "network"],
-  "upgrade-wan": ["performance", "network"],
+  "add-ups": ["reliability", "space"],
+  "add-offsite": ["reliability", "cost"],
+  "add-managed-switch": ["reliability", "network", "space", "power"],
+  "upgrade-lan": ["performance", "network", "power"],
+  "upgrade-wan": ["performance", "network", "cost"],
   "add-ram": ["performance"],
-  "add-nvme": ["performance"],
-  "add-gpu": ["performance"],
-  "add-node": ["performance", "reliability"],
+  "add-nvme": ["performance", "space"],
+  "add-gpu": ["performance", "power", "noise"],
+  "add-node": ["performance", "reliability", "power", "noise", "space"],
 };
 
 const GPU_TIER_COST: Record<Node["gpu"]["tier"], number> = {
@@ -375,8 +389,12 @@ export function applyConstraints(
 
 /**
  * Re-rank + filter recommendations for the user's priorities.
- * - Any category with weight 0 is treated as a hard filter (dropped unless another selected category matches).
- * - `cost` weight penalizes items that add monthly power cost, and rewards those that reduce it.
+ * Weights are 0..3.
+ * - Positive categories (performance, reliability, network) boost matching items.
+ * - Negative categories (cost, power, noise, space) penalize items tagged with them;
+ *   `cost` also scales with the monthly $ delta.
+ * - Items with no positive tag matching a >0 weight are dropped when at least one
+ *   positive weight is set.
  */
 export function rankRecommendations(
   recs: Recommendation[],
@@ -384,27 +402,31 @@ export function rankRecommendations(
   limit = 6,
 ): Recommendation[] {
   const w = { ...DEFAULT_WEIGHTS, ...weights };
-  const anySelected =
-    (w.performance > 0 || w.reliability > 0 || w.network > 0);
+  const anyPositive = POSITIVE_CATEGORIES.some((c) => (w[c] ?? 0) > 0);
 
   const scored = recs
     .filter((r) => {
-      if (!anySelected) return true;
-      return r.categories.some((c) => c !== "cost" && (w[c] ?? 0) > 0);
+      if (!anyPositive) return true;
+      return r.categories.some((c) => POSITIVE_CATEGORIES.includes(c) && (w[c] ?? 0) > 0);
     })
     .map((r) => {
-      const catBoost = r.categories.reduce(
-        (a, c) => a + (c === "cost" ? 0 : (w[c] ?? 0)),
+      const posBoost = r.categories.reduce(
+        (a, c) => (POSITIVE_CATEGORIES.includes(c) ? a + (w[c] ?? 0) : a),
         0,
       );
-      // cost weight: 1 => strong penalty per $/mo added; negative delta boosts score
+      const negTagPenalty = r.categories.reduce(
+        (a, c) => (NEGATIVE_CATEGORIES.includes(c) && c !== "cost" ? a + (w[c] ?? 0) : a),
+        0,
+      );
+      // cost weight: scales per $/mo added; negative delta rewards
       const costPenalty = (w.cost ?? 0) * r.monthlyCostDeltaUSD * 2;
-      const score = r.gain * (1 + 0.35 * catBoost) - costPenalty;
+      const score = r.gain * (1 + 0.25 * posBoost) - costPenalty - negTagPenalty * 1.5;
       return { ...r, score: Math.round(score * 10) / 10 };
     })
     .sort((a, b) => b.score - a.score);
 
   return scored.slice(0, limit);
 }
+
 
 
