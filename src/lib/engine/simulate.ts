@@ -371,6 +371,9 @@ export function recommendDeltas(cfg: HomelabConfig): Recommendation[] {
     switch (d.kind) {
       case "add-ram": return `+${d.gb}GB RAM on ${node(d.nodeId)}`;
       case "add-gpu": return `Add ${d.tier} GPU (${d.vramGB}GB) to ${node(d.nodeId)}`;
+      case "add-egpu": return `Add eGPU ${d.model} (${d.vramGB}GB, ${d.interconnect}) to ${node(d.nodeId)}`;
+      case "add-cloud-gpu": return `Cloud GPU: ${d.provider} ${d.model} (~$${d.monthlyUSD}/mo)`;
+
       case "add-nvme": return `+${d.sizeGB}GB NVMe on ${node(d.nodeId)}`;
       case "upgrade-lan": return `Upgrade LAN to ${d.gbps}GbE`;
       case "upgrade-wan": return `WAN → ${d.downMbps}/${d.upMbps} Mbps`;
