@@ -473,12 +473,24 @@ function Simulate() {
   );
 }
 
-const PRIORITY_OPTIONS: { key: RecCategory; label: string; icon: typeof Zap; hint: string }[] = [
-  { key: "performance", label: "Performance", icon: Zap, hint: "CPU, RAM, GPU, storage speed" },
-  { key: "reliability", label: "Reliability", icon: ShieldCheck, hint: "UPS, offsite backup, HA" },
-  { key: "network", label: "Network", icon: Network, hint: "LAN/WAN, managed switch, VLANs" },
-  { key: "cost", label: "Low running cost", icon: DollarSign, hint: "Penalize $/mo power increases" },
+const PRIORITY_OPTIONS: {
+  key: RecCategory;
+  label: string;
+  icon: typeof Zap;
+  hint: string;
+  polarity: "boost" | "avoid";
+}[] = [
+  { key: "performance", label: "Performance", icon: Zap, hint: "CPU, RAM, GPU, storage speed", polarity: "boost" },
+  { key: "reliability", label: "Reliability", icon: ShieldCheck, hint: "UPS, offsite backup, HA", polarity: "boost" },
+  { key: "network", label: "Network", icon: Network, hint: "LAN/WAN, managed switch, VLANs", polarity: "boost" },
+  { key: "cost", label: "Low running cost", icon: DollarSign, hint: "Penalize $/mo increases", polarity: "avoid" },
+  { key: "power", label: "Low power draw", icon: Plug, hint: "Avoid power-hungry additions", polarity: "avoid" },
+  { key: "noise", label: "Low noise", icon: VolumeX, hint: "Avoid loud fans (discrete GPUs, extra nodes)", polarity: "avoid" },
+  { key: "space", label: "Compact footprint", icon: Ruler, hint: "Avoid additions that take physical space", polarity: "avoid" },
 ];
+
+const WEIGHT_LABELS = ["Off", "Low", "Med", "High"] as const;
+
 
 function SuggestionCard({
   cfg,
