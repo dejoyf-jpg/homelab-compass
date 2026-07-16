@@ -26,7 +26,8 @@ import { Toggle } from "@/components/ui/toggle";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
-import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info, Check } from "lucide-react";
+import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info, Check, VolumeX, Plug, Ruler } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import type { Recommendation } from "@/lib/engine/simulate";
 import type { HomelabConfig } from "@/lib/engine/types";
 
