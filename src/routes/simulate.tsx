@@ -11,14 +11,20 @@ import { useConfig } from "@/lib/storage";
 import { evaluate } from "@/lib/engine/score";
 import {
   applyDeltas,
+  applyConstraints,
   recommendDeltas,
   rankRecommendations,
   DEFAULT_WEIGHTS,
+  DEFAULT_CONSTRAINTS,
   type Delta,
+  type Constraints,
   type PriorityWeights,
   type RecCategory,
 } from "@/lib/engine/simulate";
 import { Toggle } from "@/components/ui/toggle";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+
 import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info } from "lucide-react";
 import type { Recommendation } from "@/lib/engine/simulate";
 import type { HomelabConfig } from "@/lib/engine/types";
