@@ -165,7 +165,7 @@ function ParamFields({ workload, onChange }: { workload: Workload; onChange: (w:
 }
 
 function ModelRecommendations({ cfg, workload }: { cfg: HomelabConfig; workload: Workload }) {
-  const recs = useMemo(() => recommendModelsForWorkload(cfg, workload), [cfg, workload]);
+  const recs = useMemo(() => recommendModelsForWorkloadSafe(cfg, workload), [cfg, workload]);
   const local = recs.filter((r) => r.model.hosting === "local");
   const hosted = recs.filter((r) => r.model.hosting === "hosted");
 
