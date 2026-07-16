@@ -76,6 +76,36 @@ function Simulate() {
     [simulatedCfg, rankedRecommendations, constraints],
   );
 
+  // One-click apply: append delta, evaluate before/after, toast a summary,
+  // flash the results card, and scroll it into view.
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const [flash, setFlash] = useState(false);
+  const applyRecommendation = (rec: Recommendation) => {
+    const before = evaluate(simulatedCfg);
+    const after = evaluate(applyDeltas(simulatedCfg, [rec.delta]));
+    setDeltas((d) => [...d, rec.delta]);
+    setFlash(true);
+    const overallDelta = after.overall - before.overall;
+    const powerDelta = after.power.monthlyCostUSD - before.power.monthlyCostUSD;
+    const parts = [
+      overallDelta !== 0
+        ? `${overallDelta > 0 ? "+" : ""}${overallDelta} overall`
+        : "no score change",
+      powerDelta !== 0
+        ? `${powerDelta > 0 ? "+" : ""}$${powerDelta.toFixed(2)}/mo power`
+        : null,
+    ].filter(Boolean);
+    toast.success(`Applied: ${rec.label}`, { description: parts.join(" · ") });
+    requestAnimationFrame(() =>
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(false), 900);
+    return () => clearTimeout(t);
+  }, [flash]);
+
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
