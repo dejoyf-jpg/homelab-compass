@@ -43,6 +43,36 @@ export function applyDeltas(cfg: HomelabConfig, deltas: Delta[]): HomelabConfig 
         if (n) n.gpu = { tier: d.tier, vramGB: d.vramGB, model: d.model };
         break;
       }
+      case "add-egpu": {
+        const n = next.nodes.find((x) => x.id === d.nodeId);
+        if (n) {
+          n.gpu = { tier: d.tier, vramGB: d.vramGB, model: `${d.model} (eGPU ${d.interconnect})` };
+          // enclosure + interconnect overhead
+          n.loadWatts += 35;
+          n.idleWatts += 8;
+          if (n.nicGbps < 1) n.nicGbps = 1;
+        }
+        break;
+      }
+      case "add-cloud-gpu": {
+        // Virtual node representing a rented cloud GPU — no local power draw.
+        next.nodes.push({
+          id: `cloud-${d.provider.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
+          name: `Cloud GPU: ${d.provider} ${d.model}`,
+          role: "cloud-gpu",
+          cpuModel: `${d.provider} host`,
+          cpuCores: 8,
+          cpuTier: "server",
+          ramGB: 64,
+          ecc: true,
+          gpu: { model: d.model, vramGB: d.vramGB, tier: d.tier },
+          storage: [{ kind: "nvme", sizeGB: 500, count: 1 }],
+          nicGbps: 10,
+          idleWatts: 0,
+          loadWatts: 0,
+        });
+        break;
+      }
       case "add-nvme": {
         const n = next.nodes.find((x) => x.id === d.nodeId);
         if (n) n.storage.push({ kind: "nvme", sizeGB: d.sizeGB, count: 1 });
