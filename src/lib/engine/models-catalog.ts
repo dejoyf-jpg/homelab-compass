@@ -239,3 +239,21 @@ export function recommendModelsForWorkload(
     };
   });
 }
+
+/**
+ * Guarded variant: always returns an array. Any exception thrown while building
+ * recommendations, and any individual entry that doesn't match the schema, is
+ * dropped so the caller can render safely.
+ */
+export function recommendModelsForWorkloadSafe(
+  cfg: HomelabConfig,
+  w: Workload,
+  opts: { monthlyRequests?: number; avgTokensIn?: number; avgTokensOut?: number } = {},
+): ModelRecommendation[] {
+  try {
+    return safeParseModelRecommendations(recommendModelsForWorkload(cfg, w, opts));
+  } catch (err) {
+    console.warn("[models-catalog] recommendModelsForWorkload threw", err);
+    return [];
+  }
+}
