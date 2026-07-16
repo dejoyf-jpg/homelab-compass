@@ -77,20 +77,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "HomelabIQ — Evaluate & Simulate Your Homelab" },
+      {
+        name: "description",
+        content:
+          "AI-assisted homelab evaluator: score your hardware, simulate upgrades, model workloads, and get shopping links.",
+      },
+      { property: "og:title", content: "HomelabIQ" },
+      {
+        property: "og:description",
+        content: "Score your homelab, simulate upgrades, and get shopping links.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
@@ -119,8 +121,38 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <div className="min-h-screen flex flex-col">
+        <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-10">
+          <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-6">
+            <Link to="/" className="font-bold tracking-tight">
+              Homelab<span className="text-primary">IQ</span>
+            </Link>
+            <nav className="flex items-center gap-1 text-sm">
+              {[
+                { to: "/", label: "Dashboard" },
+                { to: "/intake", label: "Intake" },
+                { to: "/evaluate", label: "Evaluate" },
+                { to: "/simulate", label: "Simulate" },
+                { to: "/workflows", label: "Workflows" },
+                { to: "/upgrades", label: "Upgrades" },
+              ].map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  activeOptions={{ exact: l.to === "/" }}
+                  className="px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+                  activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </header>
+        <main className="flex-1">
+          <Outlet />
+        </main>
+      </div>
     </QueryClientProvider>
   );
 }
