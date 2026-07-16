@@ -106,6 +106,41 @@ function Simulate() {
     return () => clearTimeout(t);
   }, [flash]);
 
+  // Staged (previewed) recommendations — evaluated but not yet applied.
+  const [stagedKeys, setStagedKeys] = useState<Set<string>>(new Set());
+  const toggleStaged = (key: string) =>
+    setStagedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const stagedRecs = useMemo(
+    () => recommendations.filter((r) => stagedKeys.has(r.label)),
+    [recommendations, stagedKeys],
+  );
+  const previewCfg = useMemo(
+    () => applyDeltas(simulatedCfg, stagedRecs.map((r) => r.delta)),
+    [simulatedCfg, stagedRecs],
+  );
+  const preview = useMemo(() => evaluate(previewCfg), [previewCfg]);
+  const applyStaged = () => {
+    if (stagedRecs.length === 0) return;
+    const before = evaluate(simulatedCfg);
+    const after = preview;
+    setDeltas((d) => [...d, ...stagedRecs.map((r) => r.delta)]);
+    setStagedKeys(new Set());
+    setFlash(true);
+    toast.success(`Applied ${stagedRecs.length} upgrade${stagedRecs.length === 1 ? "" : "s"}`, {
+      description: `${after.overall - before.overall >= 0 ? "+" : ""}${after.overall - before.overall} overall · ${
+        after.power.monthlyCostUSD - before.power.monthlyCostUSD >= 0 ? "+" : ""
+      }$${(after.power.monthlyCostUSD - before.power.monthlyCostUSD).toFixed(2)}/mo`,
+    });
+    requestAnimationFrame(() =>
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
@@ -267,6 +302,14 @@ function Simulate() {
                       +{r.gain} overall
                     </Badge>
                   )}
+                  <Toggle
+                    size="sm"
+                    pressed={stagedKeys.has(r.label)}
+                    onPressedChange={() => toggleStaged(r.label)}
+                    aria-label="Compare this upgrade"
+                  >
+                    Compare
+                  </Toggle>
                   <Button size="sm" onClick={() => applyRecommendation(r)}>
                     <Plus className="h-4 w-4 mr-1" /> Apply & recalc
                   </Button>
@@ -277,6 +320,103 @@ function Simulate() {
           )}
         </CardContent>
       </Card>
+
+      {stagedRecs.length > 0 && (
+        <Card className="border-primary/40">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Comparison preview
+              <span className="text-xs font-normal text-muted-foreground">
+                {stagedRecs.length} staged upgrade{stagedRecs.length === 1 ? "" : "s"}
+              </span>
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setStagedKeys(new Set())}>
+                Clear
+              </Button>
+              <Button size="sm" onClick={applyStaged}>
+                <Check className="h-4 w-4 mr-1" /> Apply all
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {stagedRecs.map((r) => (
+                <button
+                  key={r.label}
+                  onClick={() => toggleStaged(r.label)}
+                  className="text-xs rounded-full bg-primary/10 text-primary px-2 py-0.5 hover:bg-primary/20 inline-flex items-center gap-1"
+                >
+                  {r.label}
+                  <X className="h-3 w-3" />
+                </button>
+              ))}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-muted-foreground border-b">
+                    <th className="text-left font-medium py-1.5 pr-2">Metric</th>
+                    <th className="text-right font-medium py-1.5 px-2">Base</th>
+                    <th className="text-right font-medium py-1.5 px-2">Simulated</th>
+                    <th className="text-right font-medium py-1.5 pl-2">With staged</th>
+                    <th className="text-right font-medium py-1.5 pl-3">Δ vs base</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b font-medium">
+                    <td className="py-1.5 pr-2">Overall</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{base!.overall}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{simulated!.overall}</td>
+                    <td className="py-1.5 pl-2 text-right tabular-nums text-primary">{preview.overall}</td>
+                    <td className="py-1.5 pl-3 text-right tabular-nums">
+                      <Delta n={preview.overall - base!.overall} />
+                    </td>
+                  </tr>
+                  {base!.dimensions.map((d, i) => {
+                    const s = Math.round(simulated!.dimensions[i].score);
+                    const p = Math.round(preview.dimensions[i].score);
+                    const b = Math.round(d.score);
+                    return (
+                      <tr key={d.key} className="border-b last:border-0">
+                        <td className="py-1.5 pr-2">{d.label}</td>
+                        <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{b}</td>
+                        <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{s}</td>
+                        <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{p}</td>
+                        <td className="py-1.5 pl-3 text-right tabular-nums">
+                          <Delta n={p - b} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="border-t">
+                    <td className="py-1.5 pr-2 text-muted-foreground">Monthly power</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">${base!.power.monthlyCostUSD}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">${simulated!.power.monthlyCostUSD}</td>
+                    <td className="py-1.5 pl-2 text-right tabular-nums">${preview.power.monthlyCostUSD}</td>
+                    <td className="py-1.5 pl-3 text-right tabular-nums">
+                      <span
+                        className={
+                          preview.power.monthlyCostUSD - base!.power.monthlyCostUSD > 0
+                            ? "text-destructive"
+                            : preview.power.monthlyCostUSD - base!.power.monthlyCostUSD < 0
+                            ? "text-emerald-600"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {preview.power.monthlyCostUSD - base!.power.monthlyCostUSD > 0 ? "+" : ""}$
+                        {(preview.power.monthlyCostUSD - base!.power.monthlyCostUSD).toFixed(2)}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {blockedRecommendations.length > 0 && (
         <Card className="border-dashed">
