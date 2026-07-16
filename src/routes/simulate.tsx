@@ -171,8 +171,20 @@ function Simulate() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-base">Baseline → Simulated</CardTitle></CardHeader>
+        <Card
+          ref={resultsRef}
+          className={`transition-shadow duration-700 ${flash ? "ring-2 ring-primary shadow-lg" : ""}`}
+        >
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              Baseline → Simulated
+              {flash && (
+                <span className="inline-flex items-center gap-1 text-xs font-normal text-primary">
+                  <Check className="h-3.5 w-3.5" /> recalculated
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between text-sm border-b pb-2">
               <span className="font-medium">Overall</span>
