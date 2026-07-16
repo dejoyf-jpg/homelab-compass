@@ -614,7 +614,7 @@ function shoppingForDelta(d: Delta): ShoppingItem[] {
       return [
         {
           what: `Additional node (${d.node.name || "compute host"})`,
-          sizing: `Assumes ~${d.node.ramGB || 32} GB RAM and ${d.node.cpu?.cores || 6} cores as a Proxmox/K3s worker; add UPS outlet + switch port.`,
+          sizing: `Assumes ~${d.node.ramGB || 32} GB RAM and ${d.node.cpuCores || 6} cores as a Proxmox/K3s worker; add UPS outlet + switch port.`,
           links: [
             { name: "Mini PC (Amazon)", url: amazon("Beelink SER8 mini PC 32GB") },
             { name: "Refurb SFF (Amazon)", url: amazon("Lenovo ThinkCentre M720q tiny 32GB") },
