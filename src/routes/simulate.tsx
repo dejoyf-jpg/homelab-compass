@@ -235,6 +235,35 @@ function Simulate() {
         </CardContent>
       </Card>
 
+      {blockedRecommendations.length > 0 && (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-base text-muted-foreground">
+              Blocked by your constraints
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {blockedRecommendations.map((r, i) => (
+              <div key={i} className="text-sm border rounded-md p-2.5 bg-muted/20 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{r.label}</span>
+                  {r.gain > 0 && (
+                    <Badge variant="outline" className="tabular-nums text-xs">
+                      would give +{r.gain}
+                    </Badge>
+                  )}
+                </div>
+                <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                  {r.blockedReasons.map((b, j) => <li key={j}>{b}</li>)}
+                </ul>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+
+
 
 
       <Card>
