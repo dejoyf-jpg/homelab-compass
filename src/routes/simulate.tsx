@@ -27,11 +27,17 @@ function Simulate() {
   const [cfg, , hydrated] = useConfig();
   const [deltas, setDeltas] = useState<Delta[]>([]);
 
+  const simulatedCfg = useMemo(() => applyDeltas(cfg, deltas), [cfg, deltas]);
   const base = useMemo(() => (hydrated ? evaluate(cfg) : null), [cfg, hydrated]);
   const simulated = useMemo(
-    () => (hydrated ? evaluate(applyDeltas(cfg, deltas)) : null),
-    [cfg, deltas, hydrated],
+    () => (hydrated ? evaluate(simulatedCfg) : null),
+    [simulatedCfg, hydrated],
   );
+  const recommendations = useMemo(
+    () => (hydrated ? recommendDeltas(simulatedCfg) : []),
+    [simulatedCfg, hydrated],
+  );
+
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
