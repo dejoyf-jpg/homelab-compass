@@ -63,7 +63,17 @@ export interface Scenario {
   deltas: Delta[];
 }
 
-export type RecCategory = "performance" | "reliability" | "cost" | "network";
+export type RecCategory =
+  | "performance"
+  | "reliability"
+  | "network"
+  | "cost"
+  | "power"
+  | "noise"
+  | "space";
+
+export const POSITIVE_CATEGORIES: RecCategory[] = ["performance", "reliability", "network"];
+export const NEGATIVE_CATEGORIES: RecCategory[] = ["cost", "power", "noise", "space"];
 
 export interface Recommendation {
   delta: Delta;
@@ -83,11 +93,15 @@ export interface Recommendation {
 
 export type PriorityWeights = Partial<Record<RecCategory, number>>;
 
+/** Weights are 0..3 (Off / Low / Medium / High). */
 export const DEFAULT_WEIGHTS: Required<PriorityWeights> = {
-  performance: 1,
-  reliability: 1,
-  cost: 0,
-  network: 1,
+  performance: 2,
+  reliability: 2,
+  network: 2,
+  cost: 1,
+  power: 1,
+  noise: 1,
+  space: 1,
 };
 
 export interface Constraints {
@@ -104,15 +118,15 @@ export const DEFAULT_CONSTRAINTS: Constraints = {
 };
 
 const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
-  "add-ups": ["reliability"],
-  "add-offsite": ["reliability"],
-  "add-managed-switch": ["reliability", "network"],
-  "upgrade-lan": ["performance", "network"],
-  "upgrade-wan": ["performance", "network"],
+  "add-ups": ["reliability", "space"],
+  "add-offsite": ["reliability", "cost"],
+  "add-managed-switch": ["reliability", "network", "space", "power"],
+  "upgrade-lan": ["performance", "network", "power"],
+  "upgrade-wan": ["performance", "network", "cost"],
   "add-ram": ["performance"],
-  "add-nvme": ["performance"],
-  "add-gpu": ["performance"],
-  "add-node": ["performance", "reliability"],
+  "add-nvme": ["performance", "space"],
+  "add-gpu": ["performance", "power", "noise"],
+  "add-node": ["performance", "reliability", "power", "noise", "space"],
 };
 
 const GPU_TIER_COST: Record<Node["gpu"]["tier"], number> = {
