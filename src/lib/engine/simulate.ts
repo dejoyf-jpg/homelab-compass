@@ -172,7 +172,10 @@ const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
   "add-ram": ["performance"],
   "add-nvme": ["performance", "space"],
   "add-gpu": ["performance", "power", "noise"],
+  "add-egpu": ["performance", "power", "noise", "space"],
+  "add-cloud-gpu": ["performance", "cost"],
   "add-node": ["performance", "reliability", "power", "noise", "space"],
+
 };
 
 const GPU_TIER_COST: Record<Node["gpu"]["tier"], number> = {
