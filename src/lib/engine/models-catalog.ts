@@ -2,9 +2,7 @@ import { z } from "zod";
 import type { CustomModel, HomelabConfig, Node, Workload } from "./types";
 import { estimateLlmTokensPerSec } from "./score";
 
-export type ModelHostingExt = "local" | "hosted" | "custom";
-
-export type ModelHosting = "local" | "hosted";
+export type ModelHosting = "local" | "hosted" | "custom";
 
 export interface ModelParamDefaults {
   temperature: number;
