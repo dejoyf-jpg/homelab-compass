@@ -1403,6 +1403,9 @@ function describeDelta(d: Delta, cfg: { nodes: { id: string; name: string }[] })
   switch (d.kind) {
     case "add-ram": return `+${d.gb}GB RAM on ${nodeName(d.nodeId)}`;
     case "add-gpu": return `Add GPU (${d.tier}, ${d.vramGB}GB) to ${nodeName(d.nodeId)}`;
+    case "add-egpu": return `Add eGPU ${d.model} (${d.vramGB}GB, ${d.interconnect}) to ${nodeName(d.nodeId)}`;
+    case "add-cloud-gpu": return `Cloud GPU: ${d.provider} ${d.model} (~$${d.monthlyUSD}/mo)`;
+
     case "add-nvme": return `+${d.sizeGB}GB NVMe on ${nodeName(d.nodeId)}`;
     case "upgrade-lan": return `Upgrade LAN to ${d.gbps}GbE`;
     case "upgrade-wan": return `WAN → ${d.downMbps}/${d.upMbps} Mbps`;
