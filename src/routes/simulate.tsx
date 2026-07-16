@@ -891,7 +891,50 @@ function SuggestionCard({
           </div>
 
 
+          {(() => {
+            const items = shoppingForDelta(rec.delta);
+            if (items.length === 0) return null;
+            return (
+              <div className="pt-1 border-t">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ShoppingCart className="h-3.5 w-3.5 text-primary" />
+                  <div className="text-xs font-medium">Where to buy / provision</div>
+                </div>
+                <div className="space-y-2">
+                  {items.map((it, idx) => (
+                    <div key={idx} className="rounded border bg-background/60 p-2 space-y-1">
+                      <div className="text-xs font-medium">{it.what}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">Default sizing:</span>{" "}
+                        {it.sizing}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {it.links.map((l) => (
+                          <a
+                            key={l.url}
+                            href={l.url}
+                            target="_blank"
+                            rel="noopener noreferrer nofollow"
+                            className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted transition-colors"
+                          >
+                            {l.name}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground">
+                    Search links open the vendor's site — Lovable doesn't endorse specific
+                    products. Verify compatibility with your node before ordering.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex flex-wrap gap-1 pt-1">
+
             {rec.categories.map((c) => (
               <span key={c} className="rounded bg-muted px-1.5 py-0.5 text-[10px] capitalize">
                 {c}
