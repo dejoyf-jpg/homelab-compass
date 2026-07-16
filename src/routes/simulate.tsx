@@ -413,11 +413,57 @@ th{background:#f4f4f5}
 
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 gap-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
             Recommended additions
           </CardTitle>
+          {(() => {
+            // Curated "recommended set": top feasible recs across distinct
+            // categories, capped at 3, positive gain only.
+            const seen = new Set<string>();
+            const set: typeof recommendations = [];
+            for (const r of recommendations) {
+              if (r.gain <= 0) continue;
+              const cat = r.categories[0] ?? "misc";
+              if (seen.has(cat)) continue;
+              seen.add(cat);
+              set.push(r);
+              if (set.length >= 3) break;
+            }
+            if (set.length < 2) return null;
+            const allStaged = set.every((r) => stagedKeys.has(r.label));
+            const totalGain = set.reduce((s, r) => s + r.gain, 0);
+            const totalMonthly = set.reduce((s, r) => s + r.monthlyCostDeltaUSD, 0);
+            const totalUpfront = set.reduce((s, r) => s + r.upfrontCostUSD, 0);
+            return (
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="hidden sm:flex flex-col items-end text-[10px] text-muted-foreground leading-tight">
+                  <span className="tabular-nums">
+                    +{totalGain} overall · ~${totalUpfront} upfront
+                  </span>
+                  <span className="tabular-nums">
+                    {totalMonthly >= 0 ? "+" : ""}${totalMonthly.toFixed(2)}/mo
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant={allStaged ? "secondary" : "outline"}
+                  onClick={() => {
+                    setStagedKeys((prev) => {
+                      const next = new Set(prev);
+                      if (allStaged) set.forEach((r) => next.delete(r.label));
+                      else set.forEach((r) => next.add(r.label));
+                      return next;
+                    });
+                  }}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  {allStaged ? "Unstage set" : `Stage recommended set (${set.length})`}
+                </Button>
+              </div>
+            );
+          })()}
         </CardHeader>
         <CardContent className="space-y-2">
           {recommendations.length === 0 ? (
