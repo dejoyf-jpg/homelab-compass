@@ -891,6 +891,7 @@ function UpgradeComparison({ cfg, deltas }: { cfg: HomelabConfig; deltas: Delta[
 }
 
 
+function ConstraintsPanel({
   constraints,
   onChange,
 }: {
