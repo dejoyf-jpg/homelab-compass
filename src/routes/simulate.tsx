@@ -703,49 +703,87 @@ function ConstraintsPanel({
 }
 
 function PriorityFilters({
-
-
   weights,
   onChange,
 }: {
   weights: PriorityWeights;
   onChange: (w: PriorityWeights) => void;
 }) {
+  const boosts = PRIORITY_OPTIONS.filter((p) => p.polarity === "boost");
+  const avoids = PRIORITY_OPTIONS.filter((p) => p.polarity === "avoid");
+
   return (
     <Card>
-      <CardContent className="py-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mr-2">
-          Prioritize
-        </span>
-        {PRIORITY_OPTIONS.map(({ key, label, icon: Icon, hint }) => {
-          const on = (weights[key] ?? 0) > 0;
-          return (
-            <Toggle
-              key={key}
-              pressed={on}
-              onPressedChange={(v) => onChange({ ...weights, [key]: v ? 1 : 0 })}
-              variant="outline"
-              size="sm"
-              title={hint}
-              className="gap-1.5"
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </Toggle>
-          );
-        })}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="ml-auto text-xs"
-          onClick={() => onChange(DEFAULT_WEIGHTS)}
-        >
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-base">Priorities</CardTitle>
+        <Button size="sm" variant="ghost" className="text-xs" onClick={() => onChange(DEFAULT_WEIGHTS)}>
           Reset
         </Button>
+      </CardHeader>
+      <CardContent className="grid gap-6 md:grid-cols-2">
+        <PrioritySliderGroup
+          title="Boost"
+          hint="Higher = rank matching upgrades higher"
+          options={boosts}
+          weights={weights}
+          onChange={onChange}
+        />
+        <PrioritySliderGroup
+          title="Avoid"
+          hint="Higher = penalize upgrades tagged this way"
+          options={avoids}
+          weights={weights}
+          onChange={onChange}
+        />
       </CardContent>
     </Card>
   );
 }
+
+function PrioritySliderGroup({
+  title,
+  hint,
+  options,
+  weights,
+  onChange,
+}: {
+  title: string;
+  hint: string;
+  options: typeof PRIORITY_OPTIONS;
+  weights: PriorityWeights;
+  onChange: (w: PriorityWeights) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
+        <div className="text-[11px] text-muted-foreground">{hint}</div>
+      </div>
+      {options.map(({ key, label, icon: Icon, hint }) => {
+        const value = weights[key] ?? 0;
+        return (
+          <div key={key} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+            <div className="flex items-center gap-1.5 text-sm min-w-[9rem]" title={hint}>
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+              {label}
+            </div>
+            <Slider
+              value={[value]}
+              min={0}
+              max={3}
+              step={1}
+              onValueChange={([v]) => onChange({ ...weights, [key]: v })}
+            />
+            <span className="text-[11px] tabular-nums text-muted-foreground w-10 text-right">
+              {WEIGHT_LABELS[value] ?? value}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 
 
 function Delta({ n }: { n: number }) {
