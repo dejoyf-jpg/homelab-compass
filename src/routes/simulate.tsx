@@ -695,6 +695,36 @@ function shoppingForDelta(d: Delta): ShoppingItem[] {
           ],
         },
       ];
+    case "add-egpu":
+      return [
+        {
+          what: `eGPU enclosure (${d.interconnect}) + ${d.model}`,
+          sizing: `Assumes host has ${
+            d.interconnect === "thunderbolt" ? "TB3/TB4/TB5" : d.interconnect === "oculink" ? "OCuLink or M.2→OCuLink adapter" : "USB4"
+          }; expect ~10–20% GPU throughput loss vs. internal PCIe x16.`,
+          links: [
+            { name: `${d.interconnect} eGPU enclosure (Amazon)`, url: amazon(`${d.interconnect} eGPU enclosure`) },
+            { name: `${d.model} card (Amazon)`, url: amazon(`${d.model} graphics card`) },
+            { name: "Newegg eGPU", url: newegg(`eGPU enclosure ${d.interconnect}`) },
+            { name: "egpu.io guide", url: "https://egpu.io/" },
+          ],
+        },
+      ];
+    case "add-cloud-gpu":
+      return [
+        {
+          what: `${d.provider} ${d.model} (~${d.vramGB} GB VRAM) — pay-as-you-go`,
+          sizing: `Budgeted at ~$${d.monthlyUSD}/mo; assumes bursty use — switch off between jobs. No local power, noise, or upfront cost.`,
+          links: [
+            { name: "RunPod GPU pricing", url: "https://www.runpod.io/pricing" },
+            { name: "Vast.ai marketplace", url: "https://cloud.vast.ai/create/" },
+            { name: "Lambda On-Demand", url: "https://lambdalabs.com/service/gpu-cloud" },
+            { name: "Modal", url: "https://modal.com/pricing" },
+            { name: "Hyperstack", url: "https://www.hyperstack.cloud/gpu-pricing" },
+          ],
+        },
+      ];
+
     case "add-nvme":
       return [
         {
