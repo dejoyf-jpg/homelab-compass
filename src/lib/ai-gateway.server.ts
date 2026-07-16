@@ -16,7 +16,7 @@ export async function chatCompletion(opts: {
   const body: Record<string, unknown> = {
     model: opts.model,
     messages: opts.messages,
-    max_tokens: opts.maxTokens ?? 8192,
+    max_tokens: opts.maxTokens ?? 16384,
   };
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
   if (opts.jsonMode) body.response_format = { type: "json_object" };
