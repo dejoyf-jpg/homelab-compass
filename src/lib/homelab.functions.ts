@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { chatCompletion } from "./ai-gateway.server";
-import { HomelabConfigSchema } from "./engine/types";
+import { parseHomelabAiResponse, inferHomelabConfig } from "./homelab-parser";
 
 const MODEL = "google/gemini-3.5-flash";
 
@@ -71,37 +71,7 @@ export const parseIntake = createServerFn({ method: "POST" })
         { role: "user", content: data.description },
       ],
     });
-    let obj: unknown;
-    try {
-      obj = JSON.parse(raw);
-    } catch {
-      // Strip markdown fences and extract the outermost {...} block.
-      const cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
-      const start = cleaned.indexOf("{");
-      const end = cleaned.lastIndexOf("}");
-      if (start === -1 || end === -1 || end <= start) {
-        throw new Error("AI returned invalid JSON. Try rephrasing your description.");
-      }
-      const slice = cleaned.slice(start, end + 1);
-      try {
-        obj = JSON.parse(slice);
-      } catch {
-        const repaired = slice.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
-        try {
-          obj = JSON.parse(repaired);
-        } catch {
-          console.error("AI raw output (first 500 chars):", raw.slice(0, 500));
-          throw new Error("AI returned invalid JSON. Try rephrasing your description.");
-        }
-      }
-    }
-    const parsed = HomelabConfigSchema.safeParse(obj);
-    if (!parsed.success) {
-      // try partial merge with defaults
-      const fallback = HomelabConfigSchema.parse({});
-      return { ...fallback, ...(obj as object) } as unknown as ReturnType<typeof HomelabConfigSchema.parse>;
-    }
-    return parsed.data;
+    return parseHomelabAiResponse(raw) ?? inferHomelabConfig(data.description);
   });
 
 const NARRATIVE_SYSTEM = `You are a homelab consultant. Given a JSON homelab config plus computed dimension scores and bottlenecks, write a short (120–200 word) markdown assessment. Cover:
