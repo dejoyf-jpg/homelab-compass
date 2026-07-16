@@ -121,8 +121,38 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <div className="min-h-screen flex flex-col">
+        <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-10">
+          <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-6">
+            <Link to="/" className="font-bold tracking-tight">
+              Homelab<span className="text-primary">IQ</span>
+            </Link>
+            <nav className="flex items-center gap-1 text-sm">
+              {[
+                { to: "/", label: "Dashboard" },
+                { to: "/intake", label: "Intake" },
+                { to: "/evaluate", label: "Evaluate" },
+                { to: "/simulate", label: "Simulate" },
+                { to: "/workflows", label: "Workflows" },
+                { to: "/upgrades", label: "Upgrades" },
+              ].map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  activeOptions={{ exact: l.to === "/" }}
+                  className="px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+                  activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </header>
+        <main className="flex-1">
+          <Outlet />
+        </main>
+      </div>
     </QueryClientProvider>
   );
 }
