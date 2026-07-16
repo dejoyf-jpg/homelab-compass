@@ -267,8 +267,8 @@ function Simulate() {
                       +{r.gain} overall
                     </Badge>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => setDeltas([...deltas, r.delta])}>
-                    <Plus className="h-4 w-4 mr-1" /> Add
+                  <Button size="sm" onClick={() => applyRecommendation(r)}>
+                    <Plus className="h-4 w-4 mr-1" /> Apply & recalc
                   </Button>
                 </div>
               </div>
