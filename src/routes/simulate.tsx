@@ -19,7 +19,10 @@ import {
   type RecCategory,
 } from "@/lib/engine/simulate";
 import { Toggle } from "@/components/ui/toggle";
-import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network } from "lucide-react";
+import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network, ChevronDown, Info } from "lucide-react";
+import type { Recommendation } from "@/lib/engine/simulate";
+import type { HomelabConfig } from "@/lib/engine/types";
+
 
 
 
