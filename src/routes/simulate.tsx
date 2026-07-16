@@ -1299,6 +1299,29 @@ function UpgradeComparison({ cfg, deltas }: { cfg: HomelabConfig; deltas: Delta[
 }
 
 
+function CloudGpuSpendWarning({ deltas, cap }: { deltas: Delta[]; cap?: number }) {
+  if (cap == null) return null;
+  const spend = cloudGpuMonthlySpendUSD(deltas);
+  if (spend <= cap) return null;
+  const over = spend - cap;
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+    >
+      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+      <div className="space-y-0.5">
+        <div className="font-medium">
+          Cloud GPU spend over cap: ${spend.toFixed(2)}/mo (limit ${cap}/mo, +${over.toFixed(2)} over).
+        </div>
+        <div className="text-xs opacity-80">
+          Remove a cloud-GPU delta, lower its monthly estimate, or raise the cap in Constraints.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConstraintsPanel({
   constraints,
   onChange,
