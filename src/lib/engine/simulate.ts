@@ -63,12 +63,39 @@ export interface Scenario {
   deltas: Delta[];
 }
 
+export type RecCategory = "performance" | "reliability" | "cost" | "network";
+
 export interface Recommendation {
   delta: Delta;
   label: string;
   reason: string;
   gain: number; // projected overall-score gain
+  categories: RecCategory[];
+  monthlyCostDeltaUSD: number; // added running cost (power) per month
+  score: number; // priority-weighted ranking score
 }
+
+export type PriorityWeights = Partial<Record<RecCategory, number>>;
+
+export const DEFAULT_WEIGHTS: Required<PriorityWeights> = {
+  performance: 1,
+  reliability: 1,
+  cost: 0,
+  network: 1,
+};
+
+const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
+  "add-ups": ["reliability"],
+  "add-offsite": ["reliability"],
+  "add-managed-switch": ["reliability", "network"],
+  "upgrade-lan": ["performance", "network"],
+  "upgrade-wan": ["performance", "network"],
+  "add-ram": ["performance"],
+  "add-nvme": ["performance"],
+  "add-gpu": ["performance"],
+  "add-node": ["performance", "reliability"],
+};
+
 
 function pickWeakestNode(cfg: HomelabConfig, key: "ram" | "storage" | "gpu"): Node | null {
   if (cfg.nodes.length === 0) return null;
