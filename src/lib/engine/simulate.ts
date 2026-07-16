@@ -156,12 +156,21 @@ export interface Constraints {
   maxAddedNodes?: number;             // physical units you have room for
   allowDiscreteGpu?: boolean;         // false = suggest only iGPU / no-GPU changes
   maxNvmeSlotsPerNode?: number;       // e.g. 2 for a mini-PC
+  maxCloudGpuMonthlyUSD?: number;     // cap on combined cloud-GPU $/mo across applied deltas
 }
 
 export const DEFAULT_CONSTRAINTS: Constraints = {
   allowDiscreteGpu: true,
   maxNvmeSlotsPerNode: 4,
 };
+
+/** Sum of monthly cloud-GPU spend implied by the given deltas. */
+export function cloudGpuMonthlySpendUSD(deltas: Delta[]): number {
+  return deltas.reduce(
+    (a, d) => a + (d.kind === "add-cloud-gpu" ? d.monthlyUSD : 0),
+    0,
+  );
+}
 
 const CATEGORY_BY_KIND: Record<Delta["kind"], RecCategory[]> = {
   "add-ups": ["reliability", "space"],
