@@ -43,11 +43,15 @@ function Simulate() {
     () => (hydrated ? evaluate(simulatedCfg) : null),
     [simulatedCfg, hydrated],
   );
-  const recommendations = useMemo(
+  const [weights, setWeights] = useState<PriorityWeights>(DEFAULT_WEIGHTS);
+  const rawRecommendations = useMemo(
     () => (hydrated ? recommendDeltas(simulatedCfg) : []),
     [simulatedCfg, hydrated],
   );
-
+  const recommendations = useMemo(
+    () => rankRecommendations(rawRecommendations, weights),
+    [rawRecommendations, weights],
+  );
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
@@ -57,6 +61,7 @@ function Simulate() {
         <Button asChild><Link to="/intake">Start intake</Link></Button>
       </div>
     );
+
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
