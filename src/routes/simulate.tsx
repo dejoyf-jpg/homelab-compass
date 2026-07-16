@@ -251,6 +251,11 @@ function Simulate() {
         </Card>
       </div>
 
+      {deltas.length > 0 && (
+        <UpgradeComparison cfg={cfg} deltas={deltas} />
+      )}
+
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -767,6 +772,124 @@ function SuggestionCard({
     </div>
   );
 }
+
+function UpgradeComparison({ cfg, deltas }: { cfg: HomelabConfig; deltas: Delta[] }) {
+  const steps = useMemo(() => {
+    const baseline = evaluate(cfg);
+    const perStep = deltas.map((d, i) => {
+      const before = evaluate(applyDeltas(cfg, deltas.slice(0, i)));
+      const after = evaluate(applyDeltas(cfg, deltas.slice(0, i + 1)));
+      return { delta: d, label: describeDelta(d, cfg), before, after };
+    });
+    const total = evaluate(applyDeltas(cfg, deltas));
+    return { baseline, perStep, total };
+  }, [cfg, deltas]);
+
+  const dimKeys = steps.baseline.dimensions.map((d) => ({ key: d.key, label: d.label }));
+
+  const cell = (before: number, after: number, opts?: { invertColor?: boolean; money?: boolean }) => {
+    const diff = after - before;
+    const good = opts?.invertColor ? diff < 0 : diff > 0;
+    const tone = diff === 0 ? "text-muted-foreground" : good ? "text-emerald-600" : "text-destructive";
+    const fmt = (n: number) => (opts?.money ? `$${n.toFixed(2)}` : Math.round(n).toString());
+    return (
+      <span className="tabular-nums text-xs">
+        <span className="text-muted-foreground">{fmt(before)}</span>
+        <span className="mx-1">→</span>
+        <span className="text-foreground">{fmt(after)}</span>
+        {diff !== 0 && (
+          <span className={`ml-1 ${tone}`}>
+            ({diff > 0 ? "+" : ""}
+            {opts?.money ? `$${diff.toFixed(2)}` : Math.round(diff)})
+          </span>
+        )}
+      </span>
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Scenario comparison</CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Each column shows the incremental before/after impact of one upgrade, applied in order.
+          The <span className="font-medium text-foreground">Total</span> column compares the full
+          scenario against the current baseline.
+        </p>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse min-w-[640px]">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left font-medium text-xs text-muted-foreground py-2 pr-3 sticky left-0 bg-background">
+                Metric
+              </th>
+              {steps.perStep.map((s, i) => (
+                <th key={i} className="text-left font-medium text-xs py-2 px-2 min-w-[180px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-muted text-[10px] tabular-nums">
+                      {i + 1}
+                    </span>
+                    <span className="truncate">{s.label}</span>
+                  </div>
+                </th>
+              ))}
+              <th className="text-left font-medium text-xs py-2 px-2 bg-muted/40 min-w-[180px]">
+                Total vs. baseline
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b bg-muted/20">
+              <td className="py-1.5 pr-3 font-medium text-xs sticky left-0 bg-muted/20">Overall</td>
+              {steps.perStep.map((s, i) => (
+                <td key={i} className="py-1.5 px-2">
+                  {cell(s.before.overall, s.after.overall)}
+                </td>
+              ))}
+              <td className="py-1.5 px-2 bg-muted/40">
+                {cell(steps.baseline.overall, steps.total.overall)}
+              </td>
+            </tr>
+            {dimKeys.map((dim, di) => (
+              <tr key={dim.key} className="border-b last:border-b-0">
+                <td className="py-1.5 pr-3 text-xs sticky left-0 bg-background">{dim.label}</td>
+                {steps.perStep.map((s, i) => (
+                  <td key={i} className="py-1.5 px-2">
+                    {cell(s.before.dimensions[di].score, s.after.dimensions[di].score)}
+                  </td>
+                ))}
+                <td className="py-1.5 px-2 bg-muted/40">
+                  {cell(steps.baseline.dimensions[di].score, steps.total.dimensions[di].score)}
+                </td>
+              </tr>
+            ))}
+            <tr className="border-t bg-muted/20">
+              <td className="py-1.5 pr-3 font-medium text-xs sticky left-0 bg-muted/20">
+                Monthly power
+              </td>
+              {steps.perStep.map((s, i) => (
+                <td key={i} className="py-1.5 px-2">
+                  {cell(s.before.power.monthlyCostUSD, s.after.power.monthlyCostUSD, {
+                    invertColor: true,
+                    money: true,
+                  })}
+                </td>
+              ))}
+              <td className="py-1.5 px-2 bg-muted/40">
+                {cell(steps.baseline.power.monthlyCostUSD, steps.total.power.monthlyCostUSD, {
+                  invertColor: true,
+                  money: true,
+                })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function ConstraintsPanel({
   constraints,
