@@ -106,6 +106,41 @@ function Simulate() {
     return () => clearTimeout(t);
   }, [flash]);
 
+  // Staged (previewed) recommendations — evaluated but not yet applied.
+  const [stagedKeys, setStagedKeys] = useState<Set<string>>(new Set());
+  const toggleStaged = (key: string) =>
+    setStagedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const stagedRecs = useMemo(
+    () => recommendations.filter((r) => stagedKeys.has(r.label)),
+    [recommendations, stagedKeys],
+  );
+  const previewCfg = useMemo(
+    () => applyDeltas(simulatedCfg, stagedRecs.map((r) => r.delta)),
+    [simulatedCfg, stagedRecs],
+  );
+  const preview = useMemo(() => evaluate(previewCfg), [previewCfg]);
+  const applyStaged = () => {
+    if (stagedRecs.length === 0) return;
+    const before = evaluate(simulatedCfg);
+    const after = preview;
+    setDeltas((d) => [...d, ...stagedRecs.map((r) => r.delta)]);
+    setStagedKeys(new Set());
+    setFlash(true);
+    toast.success(`Applied ${stagedRecs.length} upgrade${stagedRecs.length === 1 ? "" : "s"}`, {
+      description: `${after.overall - before.overall >= 0 ? "+" : ""}${after.overall - before.overall} overall · ${
+        after.power.monthlyCostUSD - before.power.monthlyCostUSD >= 0 ? "+" : ""
+      }$${(after.power.monthlyCostUSD - before.power.monthlyCostUSD).toFixed(2)}/mo`,
+    });
+    requestAnimationFrame(() =>
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+
 
   if (!hydrated) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (cfg.nodes.length === 0)
