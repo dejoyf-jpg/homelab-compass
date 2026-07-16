@@ -9,8 +9,18 @@ import {
 } from "@/components/ui/select";
 import { useConfig } from "@/lib/storage";
 import { evaluate } from "@/lib/engine/score";
-import { applyDeltas, recommendDeltas, type Delta } from "@/lib/engine/simulate";
-import { X, Plus, Sparkles } from "lucide-react";
+import {
+  applyDeltas,
+  recommendDeltas,
+  rankRecommendations,
+  DEFAULT_WEIGHTS,
+  type Delta,
+  type PriorityWeights,
+  type RecCategory,
+} from "@/lib/engine/simulate";
+import { Toggle } from "@/components/ui/toggle";
+import { X, Plus, Sparkles, Zap, ShieldCheck, DollarSign, Network } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/simulate")({
